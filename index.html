@@ -1,0 +1,3500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Workout Tracker</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Crisp alignment for numbers, metrics, timers, weights, and tables */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Hide native number input spinners for clean stepper controls */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    /* Smooth view entrance animation */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-view {
+      animation: fadeSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Subtle custom scrollbars for dense data tables */
+    .thin-scrollbar::-webkit-scrollbar {
+      height: 5px;
+      width: 5px;
+    }
+    .thin-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .thin-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+    }
+
+    /* Safe area bottom padding for mobile browsers */
+    .pb-safe {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="bg-[#F8FAFC] dark:bg-[#0F172A] text-[#0F172A] dark:text-slate-50 font-sans antialiased min-h-screen flex flex-col selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300 transition-colors duration-200">
+
+  <!-- Common Exercises Autocomplete Datalist -->
+  <datalist id="exercise-suggestions">
+    <option value="Bench Press"></option>
+    <option value="Incline Dumbbell Press"></option>
+    <option value="Chest Fly"></option>
+    <option value="Push-Ups"></option>
+    <option value="Dips"></option>
+    <option value="Barbell Row"></option>
+    <option value="Pull-Ups"></option>
+    <option value="Lat Pulldown"></option>
+    <option value="Seated Cable Row"></option>
+    <option value="Deadlift"></option>
+    <option value="Overhead Press"></option>
+    <option value="Dumbbell Shoulder Press"></option>
+    <option value="Lateral Raises"></option>
+    <option value="Face Pulls"></option>
+    <option value="Back Squat"></option>
+    <option value="Front Squat"></option>
+    <option value="Leg Press"></option>
+    <option value="Leg Extension"></option>
+    <option value="Walking Lunges"></option>
+    <option value="Romanian Deadlift"></option>
+    <option value="Lying Leg Curl"></option>
+    <option value="Hip Thrust"></option>
+    <option value="Glute Bridge"></option>
+    <option value="Barbell Bicep Curl"></option>
+    <option value="Hammer Curl"></option>
+    <option value="Tricep Pushdown"></option>
+    <option value="Skullcrushers"></option>
+    <option value="Standing Calf Raise"></option>
+    <option value="Plank"></option>
+    <option value="Hanging Leg Raise"></option>
+    <option value="Cable Crunch"></option>
+  </datalist>
+
+  <!-- ==================== STICKY TOP HEADER ==================== -->
+  <header class="sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0F172A]/90 backdrop-blur-md border-b border-[#E2E8F0] dark:border-slate-800">
+    <div class="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
+      <!-- Brand / Logo -->
+      <button type="button" onclick="handleHeaderLogoClick()" class="flex items-center gap-2.5 text-left focus:outline-none group">
+        <span class="w-7 h-7 rounded-lg bg-[#10B981] flex items-center justify-center text-white shadow-xs">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 6.5h11" />
+            <path d="M6.5 17.5h11" />
+            <rect x="3" y="4" width="3.5" height="5" rx="1" />
+            <rect x="17.5" y="4" width="3.5" height="5" rx="1" />
+            <rect x="3" y="15" width="3.5" height="5" rx="1" />
+            <rect x="17.5" y="15" width="3.5" height="5" rx="1" />
+            <path d="M12 6.5v11" />
+          </svg>
+        </span>
+        <span class="font-bold text-[15px] tracking-tight text-[#0F172A] dark:text-white">Workout</span>
+      </button>
+
+      <!-- Global Controls: KG/LBS Unit Toggle & Light/Dark Theme Toggle -->
+      <div class="flex items-center gap-2">
+        <div class="inline-flex items-center bg-white dark:bg-[#1E293B] p-0.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700" role="group" aria-label="Weight Unit">
+          <button type="button" id="unit-kg-btn" onclick="setGlobalUnit('kg')"
+            class="px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-[#0F172A] text-white dark:bg-[#10B981] dark:text-slate-950">
+            KG
+          </button>
+          <button type="button" id="unit-lbs-btn" onclick="setGlobalUnit('lbs')"
+            class="px-2.5 py-1 rounded-md text-xs font-semibold transition-all text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white">
+            LBS
+          </button>
+        </div>
+
+        <button type="button" onclick="toggleTheme()" aria-label="Toggle Light/Dark Mode"
+          class="w-8 h-8 rounded-lg bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors">
+          <svg id="theme-moon-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+          </svg>
+          <svg id="theme-sun-icon" class="w-4 h-4 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+  <main class="flex-1 max-w-xl w-full mx-auto px-4 pt-4 pb-12 flex flex-col">
+
+    <!-- 3-TAB NAVIGATION BAR (Hidden during Active Workout Player & Completion Screen) -->
+    <nav id="main-tabs-nav" class="grid grid-cols-3 p-1 rounded-xl bg-slate-200/75 dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 mb-5" aria-label="Main Navigation">
+      <button type="button" id="tab-btn-workouts" onclick="switchTab('workouts')"
+        class="py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white dark:bg-slate-800 text-[#0F172A] dark:text-white shadow-xs">
+        Workouts
+      </button>
+      <button type="button" id="tab-btn-metrics" onclick="switchTab('metrics')"
+        class="py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white">
+        Metrics
+      </button>
+      <button type="button" id="tab-btn-history" onclick="switchTab('history')"
+        class="py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white flex items-center justify-center gap-1.5">
+        <span>History</span>
+        <span id="history-tab-count" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">0</span>
+      </button>
+    </nav>
+
+    <!-- ==================================================================
+         TAB 1: WORKOUTS (Selection, Builder & Quick Summary)
+         ================================================================== -->
+    <section id="view-workouts" class="animate-view space-y-5">
+      <!-- Top Compact Summary Strip -->
+      <div class="grid grid-cols-3 gap-2.5 sm:gap-3">
+        <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5 sm:p-4">
+          <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Workouts</div>
+          <div id="summary-total-workouts" class="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0</div>
+        </div>
+        <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5 sm:p-4">
+          <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">This Week</div>
+          <div id="summary-this-week" class="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0</div>
+        </div>
+        <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5 sm:p-4">
+          <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Total Volume</div>
+          <div id="summary-total-volume" class="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums truncate">0 kg</div>
+        </div>
+      </div>
+
+      <!-- Your Workouts Section -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold tracking-tight text-[#0F172A] dark:text-white">Your Workouts</h2>
+          <button type="button" id="header-create-workout-btn" onclick="openWorkoutBuilder()"
+            class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 active:scale-[0.98] text-white text-xs font-semibold shadow-xs transition-all">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Workout
+          </button>
+        </div>
+
+        <div id="workouts-list-container" class="space-y-3">
+          <!-- Populated dynamically (starts completely empty) -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         TAB 2: METRICS ("OVER-THE-TOP", DATA-DENSE ANALYTICS DASHBOARD)
+         ================================================================== -->
+    <section id="view-metrics" class="hidden animate-view space-y-5">
+
+      <!-- Empty Data Notice Banner (Visible only when 0 sessions logged yet) -->
+      <div id="metrics-empty-banner" class="hidden bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-8 h-8 rounded-xl bg-emerald-500/10 text-[#10B981] flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </span>
+          <div class="min-w-0">
+            <div class="text-xs font-semibold text-[#0F172A] dark:text-white">Analytics Ready — No Sessions Logged Yet</div>
+            <div class="text-[11px] text-[#64748B] dark:text-slate-400 truncate">Complete a workout in Tab 1 to populate all 12 KPIs, charts &amp; leaderboards.</div>
+          </div>
+        </div>
+        <button type="button" onclick="switchTab('workouts')"
+          class="px-3 py-1.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-[11px] font-semibold shrink-0 transition-colors">
+          Go to Workouts
+        </button>
+      </div>
+
+      <!-- 1. INTERACTIVE TIMEFRAME FILTER BAR -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div class="inline-flex items-center gap-1" role="group" aria-label="Timeframe Filter">
+          <button type="button" data-tf="7D" onclick="setMetricsTimeframe('7D')" class="tf-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">7D</button>
+          <button type="button" data-tf="30D" onclick="setMetricsTimeframe('30D')" class="tf-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">30D</button>
+          <button type="button" data-tf="90D" onclick="setMetricsTimeframe('90D')" class="tf-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">90D</button>
+          <button type="button" data-tf="1Y" onclick="setMetricsTimeframe('1Y')" class="tf-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">1Y</button>
+          <button type="button" data-tf="ALL" onclick="setMetricsTimeframe('ALL')" class="tf-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">ALL</button>
+        </div>
+        <div class="flex items-center gap-2 text-[11px] font-medium text-[#64748B] dark:text-slate-400 px-1 tabular-nums">
+          <span id="metrics-filter-scope-label">All-Time · 0 sessions</span>
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold" id="metrics-unit-badge">KG</span>
+        </div>
+      </div>
+
+      <!-- 2. 12-CARD HERO KPI BENTO GRID -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-0.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400">Performance Overview (12 KPIs)</h2>
+          <span class="text-[11px] text-[#64748B] dark:text-slate-400 tabular-nums" id="kpi-period-tag">Period: ALL</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <!-- KPI 1: Total Volume Lifted -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Total Volume Lifted</div>
+            <div id="kpi-total-volume" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums truncate">0 kg</div>
+            <div id="kpi-total-volume-sub" class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">0.00 metric tons</div>
+          </div>
+
+          <!-- KPI 2: Total Workouts Completed -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Workouts Completed</div>
+            <div id="kpi-total-workouts" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0</div>
+            <div id="kpi-total-workouts-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">0.0 / wk avg</div>
+          </div>
+
+          <!-- KPI 3: Total Working Sets -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Total Working Sets</div>
+            <div id="kpi-total-sets" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0</div>
+            <div id="kpi-total-sets-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">0 unique exercises</div>
+          </div>
+
+          <!-- KPI 4: Total Reps Performed -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Total Reps Performed</div>
+            <div id="kpi-total-reps" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0</div>
+            <div id="kpi-total-reps-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">0.0 reps / set</div>
+          </div>
+
+          <!-- KPI 5: Weekly Streak (Current & Best) -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Weekly Streak</div>
+            <div id="kpi-weekly-streak" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0 wks</div>
+            <div id="kpi-weekly-streak-sub" class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">Best: 0 wks</div>
+          </div>
+
+          <!-- KPI 6: Average Volume per Workout -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Avg Vol / Workout</div>
+            <div id="kpi-avg-vol-workout" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums truncate">0 kg</div>
+            <div id="kpi-avg-vol-workout-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">Peak: 0 kg</div>
+          </div>
+
+          <!-- KPI 7: Average Volume per Set (Set Density) -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Set Density (Vol/Set)</div>
+            <div id="kpi-avg-vol-set" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums truncate">0 kg</div>
+            <div id="kpi-avg-vol-set-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">Tonnage per set</div>
+          </div>
+
+          <!-- KPI 8: Average Weight per Rep -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Avg Weight / Rep</div>
+            <div id="kpi-avg-wt-rep" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums truncate">0 kg</div>
+            <div id="kpi-avg-wt-rep-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">Intensity index</div>
+          </div>
+
+          <!-- KPI 9: Avg Sets & Exercises per Workout -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Avg Sets / Workout</div>
+            <div id="kpi-avg-sets-workout" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0.0</div>
+            <div id="kpi-avg-ex-workout-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">0.0 exercises / session</div>
+          </div>
+
+          <!-- KPI 10: Avg Workout Duration & Total Time Trained -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Avg Duration</div>
+            <div id="kpi-avg-duration" class="text-lg font-bold text-[#0F172A] dark:text-white mt-1 tabular-nums">0 min</div>
+            <div id="kpi-total-hours-sub" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 tabular-nums">0.0 hrs total trained</div>
+          </div>
+
+          <!-- KPI 11: Heaviest Single Lift (All-Time Max Weight) -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Heaviest Single Lift</div>
+            <div id="kpi-max-lift" class="text-lg font-bold text-[#10B981] mt-1 tabular-nums truncate">0 kg</div>
+            <div id="kpi-max-lift-ex" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 truncate">—</div>
+          </div>
+
+          <!-- KPI 12: Highest Estimated 1RM (Epley Formula) -->
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400">Highest Est. 1RM</div>
+            <div id="kpi-max-1rm" class="text-lg font-bold text-[#10B981] mt-1 tabular-nums truncate">0 kg</div>
+            <div id="kpi-max-1rm-ex" class="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 truncate">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. WEEKLY VOLUME PER MUSCLE GROUP (MULTI-VIEW) -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-5">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">Weekly Volume by Muscle Group</h3>
+            <p class="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">8-week Monday-start stacked tonnage &amp; weekly hypertrophy dose</p>
+          </div>
+          <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#64748B] dark:text-slate-300 shrink-0">
+            8 Weeks
+          </span>
+        </div>
+
+        <!-- Chart.js Stacked Bar Chart -->
+        <div class="relative w-full" style="height: 220px;">
+          <canvas id="chart-muscle-weekly"></canvas>
+        </div>
+
+        <!-- Weekly Muscle Group Breakdown Table -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[#0F172A] dark:text-slate-200">Current Week Muscle Breakdown</span>
+            <span class="text-[11px] text-[#64748B] dark:text-slate-400 tabular-nums" id="muscle-this-week-total-label">This Wk: 0 kg</span>
+          </div>
+          <div class="overflow-x-auto thin-scrollbar border border-[#E2E8F0] dark:border-slate-800 rounded-2xl">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-[#F8FAFC] dark:bg-slate-900/70 border-b border-[#E2E8F0] dark:border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-slate-400">
+                  <th class="py-2.5 px-3">Muscle</th>
+                  <th class="py-2.5 px-2 text-right">Sets/Wk</th>
+                  <th class="py-2.5 px-2 text-right">Reps/Wk</th>
+                  <th class="py-2.5 px-2 text-right">This Wk</th>
+                  <th class="py-2.5 px-2 text-right">Share</th>
+                  <th class="py-2.5 px-3 text-right">WoW &Delta;%</th>
+                </tr>
+              </thead>
+              <tbody id="muscle-breakdown-tbody" class="divide-y divide-[#E2E8F0]/70 dark:divide-slate-800/80 tabular-nums">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Muscle Symmetry & Push/Pull/Legs Balance Radar/Polar Chart -->
+        <div class="pt-2 border-t border-[#E2E8F0] dark:border-slate-800 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 class="text-xs font-bold text-[#0F172A] dark:text-white">Muscular Balance &amp; Symmetry</h4>
+              <p class="text-[11px] text-[#64748B] dark:text-slate-400">Period volume distribution across muscle groups &amp; movement patterns</p>
+            </div>
+            <div class="inline-flex bg-[#F8FAFC] dark:bg-slate-900 p-0.5 rounded-lg border border-[#E2E8F0] dark:border-slate-800">
+              <button type="button" id="balance-mode-radar" onclick="setBalanceChartMode('radar')"
+                class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white dark:bg-slate-800 text-[#0F172A] dark:text-white shadow-2xs">
+                11-Muscle Radar
+              </button>
+              <button type="button" id="balance-mode-polar" onclick="setBalanceChartMode('polarArea')"
+                class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#64748B] dark:text-slate-400">
+                Push / Pull / Legs
+              </button>
+            </div>
+          </div>
+
+          <!-- Push / Pull / Legs Ratio Strip -->
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-xl p-2">
+              <div class="text-[10px] font-semibold text-[#64748B] dark:text-slate-400">PUSH</div>
+              <div id="ppl-push-pct" class="text-sm font-bold text-[#0F172A] dark:text-white tabular-nums mt-0.5">0%</div>
+              <div id="ppl-push-vol" class="text-[10px] text-[#64748B] dark:text-slate-400 tabular-nums truncate">0 kg</div>
+            </div>
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-xl p-2">
+              <div class="text-[10px] font-semibold text-[#64748B] dark:text-slate-400">PULL</div>
+              <div id="ppl-pull-pct" class="text-sm font-bold text-[#0F172A] dark:text-white tabular-nums mt-0.5">0%</div>
+              <div id="ppl-pull-vol" class="text-[10px] text-[#64748B] dark:text-slate-400 tabular-nums truncate">0 kg</div>
+            </div>
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-xl p-2">
+              <div class="text-[10px] font-semibold text-[#64748B] dark:text-slate-400">LEGS &amp; CORE</div>
+              <div id="ppl-legs-pct" class="text-sm font-bold text-[#0F172A] dark:text-white tabular-nums mt-0.5">0%</div>
+              <div id="ppl-legs-vol" class="text-[10px] text-[#64748B] dark:text-slate-400 tabular-nums truncate">0 kg</div>
+            </div>
+          </div>
+
+          <div class="relative w-full" style="height: 220px;">
+            <canvas id="chart-muscle-balance"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. TOTAL WEIGHT VOLUME PER WORKOUT DAY -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-5">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">Total Weight Volume per Workout Day</h3>
+            <p class="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">Daily session tonnage bars with 3-session rolling average trendline</p>
+          </div>
+          <span class="text-[10px] font-semibold px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+            3-Sess MA
+          </span>
+        </div>
+
+        <!-- Chart.js Combo Bar + Line Chart -->
+        <div class="relative w-full" style="height: 220px;">
+          <canvas id="chart-daily-volume"></canvas>
+        </div>
+
+        <!-- Day-of-Week Performance Strip (Mon - Sun) -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[#0F172A] dark:text-slate-200">Day-of-Week Output</span>
+            <span id="peak-dow-label" class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Peak Day: —</span>
+          </div>
+          <div id="dow-performance-strip" class="grid grid-cols-7 gap-1.5">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Workout Day Volume Ledger Table -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[#0F172A] dark:text-slate-200">Workout Day Volume Ledger</span>
+            <span id="ledger-row-count" class="text-[11px] text-[#64748B] dark:text-slate-400 tabular-nums">0 days</span>
+          </div>
+          <div class="max-h-60 overflow-auto thin-scrollbar border border-[#E2E8F0] dark:border-slate-800 rounded-2xl">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="sticky top-0 z-10 bg-[#F8FAFC] dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-slate-400">
+                <tr>
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-2">Workout</th>
+                  <th class="py-2.5 px-2 text-right">Sets</th>
+                  <th class="py-2.5 px-2 text-right">Reps</th>
+                  <th class="py-2.5 px-2 text-right">Volume</th>
+                  <th class="py-2.5 px-2 text-right">Wt/Rep</th>
+                  <th class="py-2.5 px-3 text-right">Dur</th>
+                </tr>
+              </thead>
+              <tbody id="daily-ledger-tbody" class="divide-y divide-[#E2E8F0]/70 dark:divide-slate-800/80 tabular-nums">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. VOLUME & WEIGHT PROGRESSION OVER TIME -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-5">
+        <div class="space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">Exercise Weight &amp; Volume Progression</h3>
+              <p class="text-[11px] text-[#64748B] dark:text-slate-400">Max load, Estimated 1RM &amp; session tonnage per exercise</p>
+            </div>
+            <select id="progression-exercise-select" onchange="onProgressionExerciseChange(this.value)"
+              aria-label="Select Exercise for Progression Chart"
+              class="bg-[#F8FAFC] dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 focus:border-[#10B981] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#0F172A] dark:text-white outline-none max-w-[200px]">
+              <option value="">No exercises logged yet</option>
+            </select>
+          </div>
+
+          <!-- Summary Delta Badges -->
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-xl p-2.5">
+              <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Start &rarr; Latest</div>
+              <div id="prog-start-latest" class="text-xs font-bold text-[#0F172A] dark:text-white mt-0.5 tabular-nums truncate">—</div>
+            </div>
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-xl p-2.5">
+              <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Strength Gain</div>
+              <div id="prog-gain-pct" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">0%</div>
+            </div>
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-xl p-2.5">
+              <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Peak Est. 1RM</div>
+              <div id="prog-peak-1rm" class="text-xs font-bold text-[#0F172A] dark:text-white mt-0.5 tabular-nums">0 kg</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exercise Multi-Series Line Chart -->
+        <div class="relative w-full" style="height: 220px;">
+          <canvas id="chart-exercise-progression"></canvas>
+        </div>
+
+        <!-- Cumulative Lifetime Tonnage Area Chart -->
+        <div class="pt-3 border-t border-[#E2E8F0] dark:border-slate-800 space-y-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h4 class="text-xs font-bold text-[#0F172A] dark:text-white">Cumulative Lifetime Tonnage</h4>
+              <p class="text-[11px] text-[#64748B] dark:text-slate-400">Running total weight moved across every session</p>
+            </div>
+            <span id="tonnage-equivalence-badge" class="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 tabular-nums">
+              0.0 compact cars lifted
+            </span>
+          </div>
+
+          <div class="relative w-full" style="height: 220px;">
+            <canvas id="chart-cumulative-tonnage"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. CONSISTENCY, TRAINING ZONES & PERSONAL RECORDS -->
+      <!-- 6A. 84-Day (12-Week) Activity & Intensity Heatmap -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-4">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">84-Day Volume Intensity Heatmap</h3>
+            <p class="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">Last 12 weeks (Mon–Sun) · Tap any square to inspect</p>
+          </div>
+          <div class="flex items-center gap-1 text-[10px] text-[#64748B] dark:text-slate-400 shrink-0">
+            <span>Less</span>
+            <span class="w-2.5 h-2.5 rounded-xs bg-slate-200 dark:bg-slate-800"></span>
+            <span class="w-2.5 h-2.5 rounded-xs bg-emerald-200 dark:bg-emerald-900"></span>
+            <span class="w-2.5 h-2.5 rounded-xs bg-emerald-400 dark:bg-emerald-700"></span>
+            <span class="w-2.5 h-2.5 rounded-xs bg-emerald-500"></span>
+            <span class="w-2.5 h-2.5 rounded-xs bg-emerald-600 dark:bg-emerald-400"></span>
+            <span>More</span>
+          </div>
+        </div>
+
+        <!-- Heatmap Grid -->
+        <div class="overflow-x-auto thin-scrollbar pb-1">
+          <div class="inline-flex items-start gap-2 min-w-full justify-between">
+            <div class="grid grid-rows-7 gap-1.5 text-[10px] font-medium text-[#64748B] dark:text-slate-400 pr-1 pt-0.5">
+              <span class="h-3.5 leading-3.5">M</span>
+              <span class="h-3.5 leading-3.5">T</span>
+              <span class="h-3.5 leading-3.5">W</span>
+              <span class="h-3.5 leading-3.5">T</span>
+              <span class="h-3.5 leading-3.5">F</span>
+              <span class="h-3.5 leading-3.5">S</span>
+              <span class="h-3.5 leading-3.5">S</span>
+            </div>
+            <div id="heatmap-grid-columns" class="grid grid-cols-12 gap-1.5 flex-1">
+              <!-- Populated dynamically (12 columns x 7 rows = 84 days) -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Selected Square Readout + Summary Stats -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E2E8F0] dark:border-slate-800 text-[11px]">
+          <span id="heatmap-hover-readout" class="font-medium text-[#0F172A] dark:text-slate-200 tabular-nums">Tap a square for daily volume</span>
+          <div class="flex items-center gap-3 text-[#64748B] dark:text-slate-400 tabular-nums">
+            <span>Active: <strong id="heatmap-active-days" class="text-[#0F172A] dark:text-white">0d</strong></span>
+            <span>Rest: <strong id="heatmap-rest-days" class="text-[#0F172A] dark:text-white">84d</strong></span>
+            <span>Freq: <strong id="heatmap-freq-wk" class="text-emerald-600 dark:text-emerald-400">0.0/wk</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6B. Rep Range & Training Zone Breakdown -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-4">
+        <div>
+          <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">Rep Range &amp; Training Zones</h3>
+          <p class="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">Distribution of working sets across Strength, Hypertrophy &amp; Endurance zones</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <div class="relative w-full" style="height: 220px;">
+            <canvas id="chart-training-zones"></canvas>
+          </div>
+
+          <div class="space-y-2.5 tabular-nums">
+            <!-- Strength (1-5 reps) -->
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+              <div class="flex items-center justify-between">
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] dark:text-white">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                  Strength (1–5 reps)
+                </span>
+                <span id="zone-strength-pct" class="text-xs font-bold text-blue-600 dark:text-blue-400">0%</span>
+              </div>
+              <div id="zone-strength-meta" class="text-[11px] text-[#64748B] dark:text-slate-400 mt-1">0 sets &middot; 0 kg</div>
+            </div>
+
+            <!-- Hypertrophy (6-12 reps) -->
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+              <div class="flex items-center justify-between">
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] dark:text-white">
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
+                  Hypertrophy (6–12 reps)
+                </span>
+                <span id="zone-hypertrophy-pct" class="text-xs font-bold text-emerald-600 dark:text-emerald-400">0%</span>
+              </div>
+              <div id="zone-hypertrophy-meta" class="text-[11px] text-[#64748B] dark:text-slate-400 mt-1">0 sets &middot; 0 kg</div>
+            </div>
+
+            <!-- Endurance (13+ reps) -->
+            <div class="bg-[#F8FAFC] dark:bg-slate-900/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+              <div class="flex items-center justify-between">
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] dark:text-white">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  Endurance (13+ reps)
+                </span>
+                <span id="zone-endurance-pct" class="text-xs font-bold text-amber-600 dark:text-amber-400">0%</span>
+              </div>
+              <div id="zone-endurance-meta" class="text-[11px] text-[#64748B] dark:text-slate-400 mt-1">0 sets &middot; 0 kg</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6C. All-Time Personal Records (PR) & 1RM Leaderboard Table -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">All-Time Personal Records &amp; 1RM Leaderboard</h3>
+            <p class="text-[11px] text-[#64748B] dark:text-slate-400">Lifetime peaks per exercise (Epley 1RM formula)</p>
+          </div>
+          <select id="pr-sort-select" onchange="renderPRLeaderboard()" aria-label="Sort PR Leaderboard"
+            class="bg-[#F8FAFC] dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-[#0F172A] dark:text-white outline-none">
+            <option value="est1rm">Sort: Est. 1RM</option>
+            <option value="maxWeight">Sort: Max Weight</option>
+            <option value="lifetimeVol">Sort: Lifetime Vol</option>
+          </select>
+        </div>
+
+        <div class="overflow-x-auto thin-scrollbar border border-[#E2E8F0] dark:border-slate-800 rounded-2xl">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-[#F8FAFC] dark:bg-slate-900/70 border-b border-[#E2E8F0] dark:border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-slate-400">
+                <th class="py-2.5 px-3">Exercise</th>
+                <th class="py-2.5 px-2 text-right">Max Wt</th>
+                <th class="py-2.5 px-2 text-right">Est. 1RM</th>
+                <th class="py-2.5 px-2 text-right">Best Set</th>
+                <th class="py-2.5 px-2 text-right">Best Sess</th>
+                <th class="py-2.5 px-2 text-right">Sets</th>
+                <th class="py-2.5 px-3 text-right">Lifetime Vol</th>
+              </tr>
+            </thead>
+            <tbody id="pr-leaderboard-tbody" class="divide-y divide-[#E2E8F0]/70 dark:divide-slate-800/80 tabular-nums">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         TAB 3: HISTORY (Chronological Completed Workouts Log)
+         ================================================================== -->
+    <section id="view-history" class="hidden animate-view space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold tracking-tight text-[#0F172A] dark:text-white">Workout History</h2>
+        <span id="history-count-subtitle" class="text-xs text-[#64748B] dark:text-slate-400 tabular-nums"></span>
+      </div>
+
+      <div id="history-list-container" class="space-y-3">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         VIEW 4: FOCUSED SINGLE-EXERCISE WORKOUT PLAYER
+         ================================================================== -->
+    <section id="view-player" class="hidden animate-view flex-1 flex flex-col">
+      <!-- Top Player Header: Exit, Title, Elapsed Timer, Exercise Counter -->
+      <div class="space-y-3 mb-4">
+        <div class="flex items-center justify-between gap-2">
+          <button type="button" onclick="promptExitWorkout()"
+            class="inline-flex items-center gap-1 py-1.5 px-2.5 -ml-2 rounded-xl text-xs font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Exit
+          </button>
+
+          <div class="text-center min-w-0">
+            <div id="player-workout-title" class="text-sm font-bold text-[#0F172A] dark:text-white truncate">Workout</div>
+            <div class="text-[11px] font-medium text-[#64748B] dark:text-slate-400 tabular-nums" id="player-elapsed-timer">00:00</div>
+          </div>
+
+          <div id="player-step-badge" class="text-xs font-bold text-[#0F172A] dark:text-white tabular-nums bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 px-2.5 py-1 rounded-lg shrink-0">
+            1 / 1
+          </div>
+        </div>
+
+        <!-- Thin Top Progress Bar -->
+        <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div id="player-progress-bar" class="h-full bg-[#10B981] rounded-full transition-all duration-300" style="width: 100%"></div>
+        </div>
+      </div>
+
+      <!-- Main Single-Exercise Focus Card -->
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
+        <!-- Exercise Name & Muscle Group Badge -->
+        <div class="text-center space-y-1.5">
+          <div class="inline-flex items-center gap-2">
+            <span id="player-exercise-idx-label" class="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-slate-400">
+              Exercise 1 of 1
+            </span>
+            <span class="text-slate-300 dark:text-slate-700">&bull;</span>
+            <span id="player-muscle-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              Chest
+            </span>
+          </div>
+          <h1 id="player-exercise-name" class="text-2xl sm:text-[26px] font-bold tracking-tight text-[#0F172A] dark:text-white">
+            Exercise Name
+          </h1>
+        </div>
+
+        <!-- Thumb-Friendly Direct On-Page Steppers: Sets, Reps & Weight -->
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Sets Stepper -->
+            <div class="bg-[#F8FAFC] dark:bg-[#0F172A]/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3 text-center">
+              <span class="block text-[10px] font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400 mb-2">Sets</span>
+              <div class="flex items-center justify-between gap-1">
+                <button type="button" onclick="adjustPlayerSets(-1)" aria-label="Decrease sets"
+                  class="w-11 h-11 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 hover:border-slate-300 active:scale-95 flex items-center justify-center text-lg font-bold text-[#0F172A] dark:text-white transition-all">
+                  &minus;
+                </button>
+                <span id="player-sets-value" class="text-xl font-bold text-[#0F172A] dark:text-white tabular-nums">3</span>
+                <button type="button" onclick="adjustPlayerSets(1)" aria-label="Increase sets"
+                  class="w-11 h-11 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 hover:border-slate-300 active:scale-95 flex items-center justify-center text-lg font-bold text-[#0F172A] dark:text-white transition-all">
+                  +
+                </button>
+              </div>
+            </div>
+
+            <!-- Reps Stepper -->
+            <div class="bg-[#F8FAFC] dark:bg-[#0F172A]/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3 text-center">
+              <span class="block text-[10px] font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400 mb-2">Reps</span>
+              <div class="flex items-center justify-between gap-1">
+                <button type="button" onclick="adjustPlayerReps(-1)" aria-label="Decrease reps"
+                  class="w-11 h-11 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 hover:border-slate-300 active:scale-95 flex items-center justify-center text-lg font-bold text-[#0F172A] dark:text-white transition-all">
+                  &minus;
+                </button>
+                <span id="player-reps-value" class="text-xl font-bold text-[#0F172A] dark:text-white tabular-nums">10</span>
+                <button type="button" onclick="adjustPlayerReps(1)" aria-label="Increase reps"
+                  class="w-11 h-11 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 hover:border-slate-300 active:scale-95 flex items-center justify-center text-lg font-bold text-[#0F172A] dark:text-white transition-all">
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weight Stepper (-2.5/+2.5 kg or -5/+5 lbs) -->
+          <div class="bg-[#F8FAFC] dark:bg-[#0F172A]/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3">
+            <div class="flex items-center justify-between mb-2 px-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400">Working Weight</span>
+              <span id="player-weight-unit" class="text-[10px] font-bold uppercase text-[#64748B] dark:text-slate-400">KG</span>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <button type="button" id="player-weight-dec-btn" onclick="adjustPlayerWeight(-1)"
+                class="px-3.5 h-11 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 hover:border-slate-300 active:scale-95 text-xs font-bold text-[#0F172A] dark:text-white tabular-nums transition-all shrink-0">
+                &minus;2.5
+              </button>
+              <input type="number" id="player-weight-input" step="0.5" min="0" placeholder="0"
+                oninput="setPlayerWeightDirect(this.value)"
+                aria-label="Working weight"
+                class="w-full h-11 bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 focus:border-[#10B981] rounded-xl text-center text-lg font-bold text-[#0F172A] dark:text-white tabular-nums outline-none transition-colors" />
+              <button type="button" id="player-weight-inc-btn" onclick="adjustPlayerWeight(1)"
+                class="px-3.5 h-11 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 hover:border-slate-300 active:scale-95 text-xs font-bold text-[#0F172A] dark:text-white tabular-nums transition-all shrink-0">
+                +2.5
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Individual Interactive Set Rows -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-xs font-semibold text-[#64748B] dark:text-slate-400">Sets Log</span>
+            <span id="player-sets-done-label" class="text-xs font-medium text-[#64748B] dark:text-slate-400 tabular-nums">0 of 3 done</span>
+          </div>
+          <div id="player-set-rows" class="space-y-2">
+            <!-- Dynamically rendered Set 1, Set 2, etc. -->
+          </div>
+        </div>
+
+        <!-- Compact Optional Rest Timer Pill (60s / 90s) -->
+        <div class="pt-1 flex justify-center">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 text-xs">
+            <span id="rest-dot" class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+            <span class="text-[#64748B] dark:text-slate-400 font-medium">Rest</span>
+            <span id="rest-countdown-text" class="font-bold text-[#0F172A] dark:text-white tabular-nums w-11 text-center">01:30</span>
+            <div class="inline-flex items-center gap-1 border-l border-[#E2E8F0] dark:border-slate-800 pl-2">
+              <button type="button" id="rest-preset-60" onclick="selectRestPreset(60)"
+                class="px-2 py-0.5 rounded-full text-[11px] font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors">
+                60s
+              </button>
+              <button type="button" id="rest-preset-90" onclick="selectRestPreset(90)"
+                class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors">
+                90s
+              </button>
+              <button type="button" id="rest-toggle-btn" onclick="toggleRestTimer()"
+                class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#0F172A] dark:bg-slate-800 text-white hover:opacity-90 transition-opacity">
+                Start
+              </button>
+              <button type="button" onclick="resetRestTimer()" aria-label="Reset rest timer" title="Reset timer"
+                class="p-1 text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-5"></div>
+
+      <!-- Bottom Arrow Navigation Bar -->
+      <div class="sticky bottom-0 z-20 pt-3 pb-safe bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC] to-transparent dark:from-[#0F172A] dark:via-[#0F172A]">
+        <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-2 flex items-center justify-between gap-3 shadow-xs">
+          <!-- Large Left Arrow Button -->
+          <button type="button" id="player-prev-btn" onclick="navigatePlayerExercise(-1)" aria-label="Previous exercise"
+            class="w-12 h-12 rounded-xl border border-[#E2E8F0] dark:border-slate-700 flex items-center justify-center text-[#0F172A] dark:text-white hover:bg-[#F8FAFC] dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-all">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+
+          <!-- Center Step Dots -->
+          <div id="player-dots-container" class="flex items-center justify-center gap-1.5 flex-wrap px-1">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Large Right Arrow Button (or Finish Workout ✓ on final exercise) -->
+          <button type="button" id="player-next-btn" onclick="handlePlayerNextOrFinish()"
+            class="w-12 h-12 rounded-xl bg-[#0F172A] dark:bg-slate-800 text-white font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shrink-0">
+            <!-- Updated dynamically -->
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         VIEW 5: WORKOUT COMPLETION SUMMARY SCREEN
+         ================================================================== -->
+    <section id="view-complete" class="hidden animate-view flex-1 flex flex-col justify-center py-4">
+      <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-xs">
+        <div class="w-14 h-14 rounded-full bg-emerald-500/15 text-[#10B981] flex items-center justify-center mx-auto">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+
+        <div class="space-y-1">
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[#0F172A] dark:text-white">Workout Complete</h1>
+          <p id="complete-subtitle" class="text-xs sm:text-sm text-[#64748B] dark:text-slate-400">Saved to history &amp; metrics</p>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 bg-[#F8FAFC] dark:bg-[#0F172A]/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3 tabular-nums">
+          <div>
+            <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Exercises</div>
+            <div id="complete-exercises" class="text-base font-bold text-[#0F172A] dark:text-white mt-0.5">0</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Sets</div>
+            <div id="complete-sets" class="text-base font-bold text-[#0F172A] dark:text-white mt-0.5">0</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Duration</div>
+            <div id="complete-duration" class="text-base font-bold text-[#0F172A] dark:text-white mt-0.5">0m</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium text-[#64748B] dark:text-slate-400">Volume</div>
+            <div id="complete-volume" class="text-base font-bold text-[#10B981] mt-0.5 truncate">0 kg</div>
+          </div>
+        </div>
+
+        <!-- Optional Template Sync if sets/reps/weights were adjusted -->
+        <div id="complete-sync-template-box" class="hidden text-left bg-[#F8FAFC] dark:bg-[#0F172A]/70 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5">
+          <label class="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" id="complete-sync-checkbox" checked class="mt-0.5 w-4 h-4 rounded accent-[#10B981]" />
+            <div class="text-xs">
+              <div class="font-semibold text-[#0F172A] dark:text-white">Update workout template with changes</div>
+              <div class="text-[#64748B] dark:text-slate-400 mt-0.5">Save your adjusted sets, reps, or weights for future sessions.</div>
+            </div>
+          </label>
+        </div>
+
+        <button type="button" onclick="finishCompletionScreen()"
+          class="w-full py-3.5 rounded-2xl bg-[#10B981] hover:bg-emerald-600 active:scale-[0.99] text-white font-semibold text-sm shadow-xs transition-all">
+          Done
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== CREATE / EDIT WORKOUT BUILDER MODAL ==================== -->
+  <div id="builder-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/45 backdrop-blur-xs sm:p-4">
+    <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-xl w-full max-h-[92vh] flex flex-col shadow-xl animate-view">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between shrink-0">
+        <h2 id="builder-modal-title" class="text-base font-bold text-[#0F172A] dark:text-white">Create Workout</h2>
+        <button type="button" onclick="closeWorkoutBuilder()" aria-label="Close modal"
+          class="w-8 h-8 rounded-full bg-[#F8FAFC] dark:bg-slate-800 flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Builder Scrollable Content -->
+      <div class="p-5 overflow-y-auto space-y-5 flex-1">
+        <div>
+          <label for="builder-workout-name" class="block text-xs font-semibold text-[#64748B] dark:text-slate-400 mb-1.5">Workout Name</label>
+          <input type="text" id="builder-workout-name" placeholder="e.g., Push Day, Full Body A"
+            class="w-full bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 focus:border-[#10B981] rounded-xl px-3.5 py-2.5 text-sm font-medium text-[#0F172A] dark:text-white placeholder-[#94A3B8] outline-none transition-colors" />
+        </div>
+
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[#64748B] dark:text-slate-400">Exercises</span>
+            <span id="builder-exercise-count" class="text-xs text-[#64748B] dark:text-slate-400 tabular-nums">1 exercise</span>
+          </div>
+
+          <div id="builder-exercises-list" class="space-y-3">
+            <!-- Dynamically rendered builder exercise cards -->
+          </div>
+
+          <button type="button" onclick="addBuilderExercise()"
+            class="w-full py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#10B981] dark:hover:border-[#10B981] text-xs font-semibold text-[#64748B] dark:text-slate-300 hover:text-[#10B981] transition-colors flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Exercise
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-4 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0 pb-safe">
+        <button type="button" onclick="closeWorkoutBuilder()"
+          class="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors">
+          Cancel
+        </button>
+        <button type="button" onclick="saveWorkoutTemplate()"
+          class="px-5 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 active:scale-[0.98] text-white text-xs font-semibold shadow-xs transition-all">
+          Save Workout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CONFIRMATION DIALOG ==================== -->
+  <div id="confirm-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-xs">
+    <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl max-w-xs w-full p-5 shadow-xl animate-view space-y-4">
+      <div class="space-y-1.5">
+        <h3 id="confirm-title" class="text-base font-bold text-[#0F172A] dark:text-white">Confirm</h3>
+        <p id="confirm-message" class="text-xs leading-relaxed text-[#64748B] dark:text-slate-400">Are you sure?</p>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="closeConfirmDialog()"
+          class="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#64748B] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          Cancel
+        </button>
+        <button type="button" id="confirm-yes-btn"
+          class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition-colors">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SUBTLE TOAST FEEDBACK ==================== -->
+  <div id="toast-pill" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#0F172A] dark:bg-slate-800 text-white text-xs font-medium shadow-lg pointer-events-none">
+    Saved
+  </div>
+
+  <!-- ==================== APPLICATION LOGIC ==================== -->
+  <script>
+    /* ==========================================================================
+       1. CONSTANTS, MUSCLE GROUP CONFIGURATION & STRICT EMPTY INITIAL STATE
+       ========================================================================== */
+    const STORAGE_KEYS = {
+      WORKOUTS: 'wt_templates_v2',
+      HISTORY: 'wt_history_v2',
+      PREFS: 'wt_prefs_v2'
+    };
+
+    const KG_TO_LBS = 2.20462;
+
+    const MUSCLE_GROUPS = [
+      'Chest',
+      'Back',
+      'Shoulders',
+      'Quads',
+      'Hamstrings',
+      'Glutes',
+      'Biceps',
+      'Triceps',
+      'Core',
+      'Calves',
+      'Full Body'
+    ];
+
+    const MUSCLE_COLORS = {
+      'Chest': '#10B981',
+      'Back': '#3B82F6',
+      'Shoulders': '#8B5CF6',
+      'Quads': '#F59E0B',
+      'Hamstrings': '#EF4444',
+      'Glutes': '#EC4899',
+      'Biceps': '#06B6D4',
+      'Triceps': '#6366F1',
+      'Core': '#14B8A6',
+      'Calves': '#84CC16',
+      'Full Body': '#64748B'
+    };
+
+    const PUSH_MUSCLES = new Set(['Chest', 'Shoulders', 'Triceps']);
+    const PULL_MUSCLES = new Set(['Back', 'Biceps']);
+
+    // STRICTLY EMPTY INITIAL STATE — ZERO PRE-MADE WORKOUTS OR SAMPLE HISTORY
+    const state = {
+      unit: 'kg',              // 'kg' | 'lbs'
+      theme: 'light',          // 'light' | 'dark'
+      activeTab: 'workouts',   // 'workouts' | 'metrics' | 'history'
+      metricsTimeframe: 'ALL', // '7D' | '30D' | '90D' | '1Y' | 'ALL'
+      balanceChartMode: 'radar', // 'radar' | 'polarArea'
+      selectedProgressionExercise: '',
+      workouts: [],
+      history: [],
+      expandedHistoryIds: new Set(),
+
+      builder: {
+        editingId: null,
+        name: '',
+        exercises: []
+      },
+
+      player: {
+        workoutId: null,
+        workoutTitle: '',
+        startTimeMs: 0,
+        elapsedSeconds: 0,
+        elapsedIntervalId: null,
+        currentIndex: 0,
+        exercises: [],
+        hasTemplateChanges: false
+      },
+
+      restTimer: {
+        preset: 90,
+        remaining: 90,
+        running: false,
+        intervalId: null
+      },
+
+      completion: {
+        workoutId: null,
+        hasTemplateChanges: false,
+        adjustedExercises: []
+      }
+    };
+
+    const chartInstances = {
+      muscleWeekly: null,
+      muscleBalance: null,
+      dailyVolume: null,
+      exerciseProgression: null,
+      cumulativeTonnage: null,
+      trainingZones: null
+    };
+
+    let confirmCallback = null;
+    let toastTimer = null;
+
+    /* ==========================================================================
+       2. PERSISTENCE, UNIT CONVERSION & DATE HELPERS
+       ========================================================================== */
+
+    function loadState() {
+      try {
+        const rawPrefs = localStorage.getItem(STORAGE_KEYS.PREFS);
+        if (rawPrefs) {
+          const prefs = JSON.parse(rawPrefs);
+          if (prefs.unit === 'kg' || prefs.unit === 'lbs') state.unit = prefs.unit;
+          if (prefs.theme === 'light' || prefs.theme === 'dark') state.theme = prefs.theme;
+          if (['7D', '30D', '90D', '1Y', 'ALL'].includes(prefs.timeframe)) state.metricsTimeframe = prefs.timeframe;
+        }
+
+        const rawWorkouts = localStorage.getItem(STORAGE_KEYS.WORKOUTS);
+        state.workouts = rawWorkouts ? JSON.parse(rawWorkouts) : [];
+
+        const rawHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
+        state.history = rawHistory ? JSON.parse(rawHistory) : [];
+      } catch (err) {
+        console.error('Failed to load localStorage:', err);
+        state.workouts = [];
+        state.history = [];
+      }
+    }
+
+    function saveWorkouts() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(state.workouts));
+      } catch (err) {
+        console.error('Failed to save workouts:', err);
+      }
+    }
+
+    function saveHistory() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(state.history));
+      } catch (err) {
+        console.error('Failed to save history:', err);
+      }
+    }
+
+    function savePrefs() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.PREFS, JSON.stringify({
+          unit: state.unit,
+          theme: state.theme,
+          timeframe: state.metricsTimeframe
+        }));
+      } catch (err) {
+        console.error('Failed to save preferences:', err);
+      }
+    }
+
+    function toLocalISO(dateObj) {
+      const offsetMs = dateObj.getTimezoneOffset() * 60000;
+      return new Date(dateObj.getTime() - offsetMs).toISOString().split('T')[0];
+    }
+
+    function getTodayISO() {
+      return toLocalISO(new Date());
+    }
+
+    function getDaysAgoISO(daysAgo) {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return toLocalISO(d);
+    }
+
+    function parseLocalDate(isoStr) {
+      const [y, m, d] = isoStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    // Returns Monday YYYY-MM-DD for any given YYYY-MM-DD string
+    function getMondayISO(isoStr) {
+      const d = parseLocalDate(isoStr);
+      const day = d.getDay(); // 0=Sun, 1=Mon...
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return toLocalISO(d);
+    }
+
+    function formatShortDate(isoStr) {
+      if (!isoStr) return '';
+      const d = parseLocalDate(isoStr);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function formatRelativeDate(isoStr) {
+      if (!isoStr) return '';
+      const today = getTodayISO();
+      const yesterday = getDaysAgoISO(1);
+      if (isoStr === today) return 'Today';
+      if (isoStr === yesterday) return 'Yesterday';
+      const d = parseLocalDate(isoStr);
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    function convertWeight(val, fromUnit, toUnit) {
+      const num = parseFloat(val);
+      if (isNaN(num) || num === 0) return 0;
+      if (fromUnit === toUnit) return Math.round(num * 10) / 10;
+      const converted = fromUnit === 'kg' ? num * KG_TO_LBS : num / KG_TO_LBS;
+      return Math.round(converted * 10) / 10;
+    }
+
+    function formatVolume(val) {
+      const rounded = Math.round(val || 0);
+      if (rounded >= 1000000) return `${(rounded / 1000000).toFixed(2)}M ${state.unit}`;
+      if (rounded >= 10000) return `${(rounded / 1000).toFixed(1)}k ${state.unit}`;
+      return `${rounded.toLocaleString()} ${state.unit}`;
+    }
+
+    function formatCompactNumber(val) {
+      const num = Math.round(val || 0);
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+      if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+      return `${num}`;
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast-pill');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 2200);
+    }
+
+    /* ==========================================================================
+       3. AUTOMATIC MUSCLE GROUP KEYWORD DETECTION
+       ========================================================================== */
+
+    function detectMuscleGroup(exerciseName) {
+      const n = (exerciseName || '').toLowerCase().trim();
+      if (!n) return 'Chest';
+
+      if (n.includes('calf') || n.includes('calves')) return 'Calves';
+      if (n.includes('tricep') || n.includes('skullcrusher') || n.includes('pushdown') || n.includes('dip')) return 'Triceps';
+      if (n.includes('bicep') || n.includes('hammer curl') || n.includes('preacher') || (n.includes('curl') && !n.includes('leg'))) return 'Biceps';
+      if (n.includes('romanian') || n.includes('rdl') || n.includes('hamstring') || n.includes('leg curl')) return 'Hamstrings';
+      if (n.includes('glute') || n.includes('hip thrust') || n.includes('bridge')) return 'Glutes';
+      if (n.includes('squat') || n.includes('lunge') || n.includes('leg press') || n.includes('leg ext') || n.includes('quad')) return 'Quads';
+      if (n.includes('bench') || n.includes('chest') || n.includes('pec') || n.includes('fly') || n.includes('push-up') || n.includes('pushup')) return 'Chest';
+      if (n.includes('deadlift') || n.includes('row') || n.includes('pull-up') || n.includes('pullup') || n.includes('pulldown') || n.includes('lat')) return 'Back';
+      if (n.includes('shoulder') || n.includes('overhead') || n.includes('ohp') || n.includes('lateral') || n.includes('raise') || n.includes('delt') || n.includes('face pull') || n.includes('military press')) return 'Shoulders';
+      if (n.includes('plank') || n.includes('crunch') || n.includes('ab ') || n.includes('abs') || n.includes('core') || n.includes('leg raise') || n.includes('russian twist')) return 'Core';
+      if (n.includes('press')) return 'Chest';
+      if (n.includes('pull')) return 'Back';
+
+      return 'Full Body';
+    }
+
+    /* ==========================================================================
+       4. THEME, UNIT SWITCHING & TAB NAVIGATION
+       ========================================================================== */
+
+    function applyTheme() {
+      const html = document.documentElement;
+      const moon = document.getElementById('theme-moon-icon');
+      const sun = document.getElementById('theme-sun-icon');
+      if (state.theme === 'dark') {
+        html.classList.add('dark');
+        moon.classList.add('hidden');
+        sun.classList.remove('hidden');
+      } else {
+        html.classList.remove('dark');
+        moon.classList.remove('hidden');
+        sun.classList.add('hidden');
+      }
+    }
+
+    function toggleTheme() {
+      state.theme = state.theme === 'light' ? 'dark' : 'light';
+      savePrefs();
+      applyTheme();
+      if (state.activeTab === 'metrics') {
+        renderMetricsTab();
+      }
+    }
+
+    function updateUnitButtons() {
+      const kgBtn = document.getElementById('unit-kg-btn');
+      const lbsBtn = document.getElementById('unit-lbs-btn');
+      const active = 'px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-[#0F172A] text-white dark:bg-[#10B981] dark:text-slate-950';
+      const inactive = 'px-2.5 py-1 rounded-md text-xs font-semibold transition-all text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white';
+      kgBtn.className = state.unit === 'kg' ? active : inactive;
+      lbsBtn.className = state.unit === 'lbs' ? active : inactive;
+    }
+
+    function setGlobalUnit(newUnit) {
+      if (state.unit === newUnit) return;
+      state.unit = newUnit;
+      savePrefs();
+      updateUnitButtons();
+
+      renderWorkoutsTab();
+      renderHistoryTab();
+      if (state.activeTab === 'metrics') {
+        renderMetricsTab();
+      }
+      if (!document.getElementById('view-player').classList.contains('hidden')) {
+        renderPlayerExercise();
+      }
+      if (!document.getElementById('builder-modal').classList.contains('hidden')) {
+        renderBuilderExercises();
+      }
+    }
+
+    function handleHeaderLogoClick() {
+      if (!document.getElementById('view-player').classList.contains('hidden')) {
+        promptExitWorkout();
+        return;
+      }
+      if (!document.getElementById('view-complete').classList.contains('hidden')) {
+        finishCompletionScreen();
+        return;
+      }
+      switchTab('workouts');
+    }
+
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+
+      document.getElementById('main-tabs-nav').classList.remove('hidden');
+      document.getElementById('view-player').classList.add('hidden');
+      document.getElementById('view-complete').classList.add('hidden');
+
+      const views = {
+        workouts: document.getElementById('view-workouts'),
+        metrics: document.getElementById('view-metrics'),
+        history: document.getElementById('view-history')
+      };
+
+      const btns = {
+        workouts: document.getElementById('tab-btn-workouts'),
+        metrics: document.getElementById('tab-btn-metrics'),
+        history: document.getElementById('tab-btn-history')
+      };
+
+      const activeBtnClass = 'py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white dark:bg-slate-800 text-[#0F172A] dark:text-white shadow-xs flex items-center justify-center gap-1.5';
+      const inactiveBtnClass = 'py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white flex items-center justify-center gap-1.5';
+
+      Object.keys(views).forEach(k => {
+        if (k === tabName) {
+          views[k].classList.remove('hidden');
+          btns[k].className = activeBtnClass;
+        } else {
+          views[k].classList.add('hidden');
+          btns[k].className = inactiveBtnClass;
+        }
+      });
+
+      updateHistoryCountBadge();
+
+      if (tabName === 'workouts') renderWorkoutsTab();
+      if (tabName === 'metrics') renderMetricsTab();
+      if (tabName === 'history') renderHistoryTab();
+    }
+
+    function updateHistoryCountBadge() {
+      const badge = document.getElementById('history-tab-count');
+      if (state.history.length > 0) {
+        badge.textContent = state.history.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    /* ==========================================================================
+       5. TAB 1: WORKOUTS (SELECTION & SUMMARY)
+       ========================================================================== */
+
+    function renderWorkoutsTab() {
+      const totalSessions = state.history.length;
+      const currentMonday = getMondayISO(getTodayISO());
+      const thisWeekSessions = state.history.filter(s => getMondayISO(s.date) === currentMonday).length;
+
+      let totalVolume = 0;
+      state.history.forEach(session => {
+        (session.exercises || []).forEach(ex => {
+          (ex.sets || []).forEach(s => {
+            totalVolume += convertWeight(s.weight || 0, s.unit || 'kg', state.unit) * (parseInt(s.reps, 10) || 0);
+          });
+        });
+      });
+
+      document.getElementById('summary-total-workouts').textContent = totalSessions;
+      document.getElementById('summary-this-week').textContent = thisWeekSessions;
+      document.getElementById('summary-total-volume').textContent = formatVolume(totalVolume);
+      updateHistoryCountBadge();
+
+      const headerCreateBtn = document.getElementById('header-create-workout-btn');
+      const container = document.getElementById('workouts-list-container');
+
+      if (state.workouts.length === 0) {
+        headerCreateBtn.classList.add('hidden');
+        container.innerHTML = `
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-8 sm:p-10 text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-[#10B981] flex items-center justify-center mx-auto">
+              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div class="space-y-1">
+              <h3 class="text-base font-bold text-[#0F172A] dark:text-white">No workouts created yet</h3>
+              <p class="text-xs text-[#64748B] dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+                Build your custom workout routines with target exercises, muscle groups, sets, and reps.
+              </p>
+            </div>
+            <div class="pt-1">
+              <button type="button" onclick="openWorkoutBuilder()"
+                class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#10B981] hover:bg-emerald-600 active:scale-[0.98] text-white text-sm font-semibold shadow-xs transition-all">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create Workout
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      headerCreateBtn.classList.remove('hidden');
+
+      container.innerHTML = state.workouts.map(wk => {
+        const exCount = wk.exercises.length;
+        const uniqueMuscles = [...new Set(wk.exercises.map(e => e.muscleGroup || 'Full Body'))];
+        const musclePills = uniqueMuscles.map(m => `
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#64748B] dark:text-slate-300">
+            ${escapeHtml(m)}
+          </span>
+        `).join('');
+
+        const exSummary = wk.exercises.map(e => `${escapeHtml(e.name)} (${e.sets}×${e.reps})`).join(' · ');
+
+        return `
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 hover:border-emerald-500/50 rounded-2xl p-4 transition-all shadow-2xs space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 space-y-1.5">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base font-bold text-[#0F172A] dark:text-white truncate">${escapeHtml(wk.title)}</h3>
+                  <span class="text-[11px] font-semibold text-[#64748B] dark:text-slate-400 bg-[#F8FAFC] dark:bg-slate-800 px-2 py-0.5 rounded-full border border-[#E2E8F0] dark:border-slate-700 shrink-0 tabular-nums">
+                    ${exCount} ${exCount === 1 ? 'exercise' : 'exercises'}
+                  </span>
+                </div>
+                <div class="flex flex-wrap gap-1">${musclePills}</div>
+                <p class="text-xs text-[#64748B] dark:text-slate-400 truncate">${exSummary}</p>
+              </div>
+
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button" onclick="openWorkoutBuilder('${wk.id}')" aria-label="Edit ${escapeHtml(wk.title)}" title="Edit"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F8FAFC] dark:hover:bg-slate-800 transition-colors">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+                <button type="button" onclick="promptDeleteWorkout('${wk.id}')" aria-label="Delete ${escapeHtml(wk.title)}" title="Delete"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-2.5 border-t border-[#E2E8F0]/80 dark:border-slate-800 flex items-center justify-end">
+              <button type="button" onclick="startWorkout('${wk.id}')"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 active:scale-[0.98] text-white text-xs font-semibold shadow-2xs transition-all">
+                Start
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function promptDeleteWorkout(workoutId) {
+      const target = state.workouts.find(w => w.id === workoutId);
+      if (!target) return;
+      openConfirmDialog(
+        'Delete Workout',
+        `Delete "${target.title}"? Completed workout history will remain intact.`,
+        () => {
+          state.workouts = state.workouts.filter(w => w.id !== workoutId);
+          saveWorkouts();
+          renderWorkoutsTab();
+          showToast('Workout deleted');
+        }
+      );
+    }
+
+    /* ==========================================================================
+       6. CREATE / EDIT WORKOUT BUILDER MODAL
+       ========================================================================== */
+
+    function openWorkoutBuilder(workoutId = null) {
+      if (workoutId) {
+        const existing = state.workouts.find(w => w.id === workoutId);
+        if (!existing) return;
+        state.builder = {
+          editingId: existing.id,
+          name: existing.title,
+          exercises: existing.exercises.map(ex => ({
+            id: ex.id || `bex-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            name: ex.name,
+            muscleGroup: ex.muscleGroup || detectMuscleGroup(ex.name),
+            manualMuscle: true,
+            sets: ex.sets || 3,
+            reps: ex.reps || 10,
+            weight: ex.weight !== '' && ex.weight !== undefined && ex.weight !== null
+              ? convertWeight(ex.weight, ex.unit || 'kg', state.unit)
+              : '',
+            unit: state.unit
+          }))
+        };
+        document.getElementById('builder-modal-title').textContent = 'Edit Workout';
+      } else {
+        state.builder = {
+          editingId: null,
+          name: '',
+          exercises: [
+            {
+              id: `bex-${Date.now()}`,
+              name: '',
+              muscleGroup: 'Chest',
+              manualMuscle: false,
+              sets: 3,
+              reps: 10,
+              weight: '',
+              unit: state.unit
+            }
+          ]
+        };
+        document.getElementById('builder-modal-title').textContent = 'Create Workout';
+      }
+
+      document.getElementById('builder-workout-name').value = state.builder.name;
+      renderBuilderExercises();
+      document.getElementById('builder-modal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('builder-workout-name').focus(), 50);
+    }
+
+    function closeWorkoutBuilder() {
+      document.getElementById('builder-modal').classList.add('hidden');
+    }
+
+    function addBuilderExercise() {
+      state.builder.exercises.push({
+        id: `bex-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: '',
+        muscleGroup: 'Chest',
+        manualMuscle: false,
+        sets: 3,
+        reps: 10,
+        weight: '',
+        unit: state.unit
+      });
+      renderBuilderExercises();
+    }
+
+    function removeBuilderExercise(idx) {
+      if (state.builder.exercises.length <= 1) {
+        showToast('At least 1 exercise is required');
+        return;
+      }
+      state.builder.exercises.splice(idx, 1);
+      renderBuilderExercises();
+    }
+
+    function moveBuilderExercise(idx, dir) {
+      const target = idx + dir;
+      if (target < 0 || target >= state.builder.exercises.length) return;
+      const arr = state.builder.exercises;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      renderBuilderExercises();
+    }
+
+    function onBuilderFieldChange(idx, field, val) {
+      const ex = state.builder.exercises[idx];
+      if (!ex) return;
+
+      if (field === 'name') {
+        ex.name = val;
+        if (!ex.manualMuscle) {
+          ex.muscleGroup = detectMuscleGroup(val);
+          const selectEl = document.getElementById(`builder-muscle-${idx}`);
+          if (selectEl) selectEl.value = ex.muscleGroup;
+        }
+      } else if (field === 'muscleGroup') {
+        ex.muscleGroup = val;
+        ex.manualMuscle = true;
+      } else if (field === 'sets') {
+        ex.sets = Math.max(1, Math.min(20, parseInt(val, 10) || 1));
+        renderBuilderExercises();
+      } else if (field === 'reps') {
+        ex.reps = Math.max(1, Math.min(100, parseInt(val, 10) || 1));
+        renderBuilderExercises();
+      } else if (field === 'weight') {
+        ex.unit = state.unit;
+        ex.weight = val === '' ? '' : Math.max(0, parseFloat(val) || 0);
+      }
+    }
+
+    function renderBuilderExercises() {
+      const container = document.getElementById('builder-exercises-list');
+      const countEl = document.getElementById('builder-exercise-count');
+      const list = state.builder.exercises;
+      countEl.textContent = `${list.length} ${list.length === 1 ? 'exercise' : 'exercises'}`;
+
+      container.innerHTML = list.map((ex, idx) => {
+        const displayWeight = ex.weight !== '' && ex.weight !== undefined && ex.weight !== null
+          ? convertWeight(ex.weight, ex.unit || 'kg', state.unit)
+          : '';
+
+        const muscleOptions = MUSCLE_GROUPS.map(m =>
+          `<option value="${m}" ${ex.muscleGroup === m ? 'selected' : ''}>${m}</option>`
+        ).join('');
+
+        return `
+          <div class="bg-[#F8FAFC] dark:bg-[#0F172A]/75 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5 space-y-3">
+            <!-- Row 1: Index, Exercise Name, Reorder & Remove -->
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-[#64748B] dark:text-slate-400 tabular-nums w-4">${idx + 1}.</span>
+              <input type="text" list="exercise-suggestions" value="${escapeHtml(ex.name)}"
+                placeholder="Exercise name (e.g., Bench Press)"
+                oninput="onBuilderFieldChange(${idx}, 'name', this.value)"
+                class="flex-1 bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 focus:border-[#10B981] rounded-xl px-3 py-2 text-sm font-medium text-[#0F172A] dark:text-white placeholder-[#94A3B8] outline-none transition-colors" />
+
+              <div class="flex items-center gap-0.5 shrink-0">
+                <button type="button" onclick="moveBuilderExercise(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} aria-label="Move up"
+                  class="w-7 h-7 rounded-lg flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white disabled:opacity-25">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+                <button type="button" onclick="moveBuilderExercise(${idx}, 1)" ${idx === list.length - 1 ? 'disabled' : ''} aria-label="Move down"
+                  class="w-7 h-7 rounded-lg flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white disabled:opacity-25">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <button type="button" onclick="removeBuilderExercise(${idx})" aria-label="Remove exercise"
+                  class="w-7 h-7 rounded-lg flex items-center justify-center text-[#64748B] dark:text-slate-400 hover:text-rose-500">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Row 2: Muscle Group Dropdown -->
+            <div class="flex items-center justify-between gap-2">
+              <label for="builder-muscle-${idx}" class="text-[11px] font-semibold text-[#64748B] dark:text-slate-400">Muscle Group</label>
+              <select id="builder-muscle-${idx}" onchange="onBuilderFieldChange(${idx}, 'muscleGroup', this.value)"
+                class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 focus:border-[#10B981] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#0F172A] dark:text-white outline-none">
+                ${muscleOptions}
+              </select>
+            </div>
+
+            <!-- Row 3: Target Sets, Target Reps, Target Weight -->
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <span class="block text-[10px] font-semibold text-[#64748B] dark:text-slate-400 mb-1">Target Sets</span>
+                <div class="flex items-center justify-between bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 rounded-xl h-9 px-1">
+                  <button type="button" onclick="onBuilderFieldChange(${idx}, 'sets', ${ex.sets - 1})"
+                    class="w-7 h-7 rounded-lg hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-sm font-bold text-[#0F172A] dark:text-white">&minus;</button>
+                  <span class="text-xs font-bold tabular-nums text-[#0F172A] dark:text-white">${ex.sets}</span>
+                  <button type="button" onclick="onBuilderFieldChange(${idx}, 'sets', ${ex.sets + 1})"
+                    class="w-7 h-7 rounded-lg hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-sm font-bold text-[#0F172A] dark:text-white">+</button>
+                </div>
+              </div>
+
+              <div>
+                <span class="block text-[10px] font-semibold text-[#64748B] dark:text-slate-400 mb-1">Target Reps</span>
+                <div class="flex items-center justify-between bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 rounded-xl h-9 px-1">
+                  <button type="button" onclick="onBuilderFieldChange(${idx}, 'reps', ${ex.reps - 1})"
+                    class="w-7 h-7 rounded-lg hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-sm font-bold text-[#0F172A] dark:text-white">&minus;</button>
+                  <span class="text-xs font-bold tabular-nums text-[#0F172A] dark:text-white">${ex.reps}</span>
+                  <button type="button" onclick="onBuilderFieldChange(${idx}, 'reps', ${ex.reps + 1})"
+                    class="w-7 h-7 rounded-lg hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-sm font-bold text-[#0F172A] dark:text-white">+</button>
+                </div>
+              </div>
+
+              <div>
+                <span class="block text-[10px] font-semibold text-[#64748B] dark:text-slate-400 mb-1">Weight (${state.unit})</span>
+                <input type="number" step="0.5" min="0" value="${displayWeight}" placeholder="0"
+                  oninput="onBuilderFieldChange(${idx}, 'weight', this.value)"
+                  class="w-full h-9 bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 focus:border-[#10B981] rounded-xl px-2 text-center text-xs font-bold text-[#0F172A] dark:text-white placeholder-[#94A3B8] tabular-nums outline-none" />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function saveWorkoutTemplate() {
+      const nameInput = document.getElementById('builder-workout-name');
+      const title = nameInput.value.trim();
+      if (!title) {
+        showToast('Enter a workout name');
+        nameInput.focus();
+        return;
+      }
+
+      const cleanExercises = state.builder.exercises
+        .map((ex, i) => ({
+          id: ex.id || `ex-${Date.now()}-${i}`,
+          name: ex.name.trim(),
+          muscleGroup: ex.muscleGroup || detectMuscleGroup(ex.name),
+          sets: Math.max(1, parseInt(ex.sets, 10) || 3),
+          reps: Math.max(1, parseInt(ex.reps, 10) || 10),
+          weight: ex.weight === '' || ex.weight === undefined || ex.weight === null ? '' : parseFloat(ex.weight),
+          unit: state.unit
+        }))
+        .filter(ex => ex.name.length > 0);
+
+      if (cleanExercises.length === 0) {
+        showToast('Add at least one named exercise');
+        return;
+      }
+
+      if (state.builder.editingId) {
+        const idx = state.workouts.findIndex(w => w.id === state.builder.editingId);
+        if (idx !== -1) {
+          state.workouts[idx] = { ...state.workouts[idx], title, exercises: cleanExercises };
+        }
+        showToast('Workout updated');
+      } else {
+        state.workouts.unshift({
+          id: `wk-${Date.now()}`,
+          title,
+          exercises: cleanExercises
+        });
+        showToast('Workout created');
+      }
+
+      saveWorkouts();
+      closeWorkoutBuilder();
+      renderWorkoutsTab();
+    }
+
+    /* ==========================================================================
+       7. FOCUSED SINGLE-EXERCISE WORKOUT PLAYER
+       ========================================================================== */
+
+    function startWorkout(workoutId) {
+      const template = state.workouts.find(w => w.id === workoutId);
+      if (!template || !template.exercises.length) return;
+
+      stopPlayerElapsedTimer();
+      stopRestTimer();
+
+      const workingExercises = template.exercises.map((ex, idx) => {
+        const targetSets = Math.max(1, parseInt(ex.sets, 10) || 3);
+        const targetReps = Math.max(1, parseInt(ex.reps, 10) || 10);
+        const workingWeight = ex.weight !== '' && ex.weight !== undefined && ex.weight !== null
+          ? convertWeight(ex.weight, ex.unit || 'kg', state.unit)
+          : 0;
+
+        const setRows = [];
+        for (let i = 0; i < targetSets; i++) {
+          setRows.push({
+            id: `sr-${Date.now()}-${idx}-${i}`,
+            weight: workingWeight,
+            reps: targetReps,
+            unit: state.unit,
+            completed: false
+          });
+        }
+
+        return {
+          id: ex.id || `pex-${idx}`,
+          name: ex.name,
+          muscleGroup: ex.muscleGroup || detectMuscleGroup(ex.name),
+          targetSets,
+          targetReps,
+          workingWeight,
+          unit: state.unit,
+          originalSets: targetSets,
+          originalReps: targetReps,
+          originalWeight: workingWeight,
+          setRows
+        };
+      });
+
+      state.player = {
+        workoutId: template.id,
+        workoutTitle: template.title,
+        startTimeMs: Date.now(),
+        elapsedSeconds: 0,
+        elapsedIntervalId: null,
+        currentIndex: 0,
+        exercises: workingExercises,
+        hasTemplateChanges: false
+      };
+
+      // Start live elapsed workout timer
+      document.getElementById('player-elapsed-timer').textContent = '00:00';
+      state.player.elapsedIntervalId = setInterval(() => {
+        state.player.elapsedSeconds = Math.floor((Date.now() - state.player.startTimeMs) / 1000);
+        const mins = Math.floor(state.player.elapsedSeconds / 60);
+        const secs = state.player.elapsedSeconds % 60;
+        document.getElementById('player-elapsed-timer').textContent =
+          `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }, 1000);
+
+      // Reset rest timer to default preset
+      state.restTimer.remaining = state.restTimer.preset;
+      updateRestTimerUI();
+
+      // Switch view to Focused Player
+      document.getElementById('main-tabs-nav').classList.add('hidden');
+      document.getElementById('view-workouts').classList.add('hidden');
+      document.getElementById('view-metrics').classList.add('hidden');
+      document.getElementById('view-history').classList.add('hidden');
+      document.getElementById('view-complete').classList.add('hidden');
+      document.getElementById('view-player').classList.remove('hidden');
+
+      renderPlayerExercise();
+    }
+
+    function stopPlayerElapsedTimer() {
+      if (state.player.elapsedIntervalId) {
+        clearInterval(state.player.elapsedIntervalId);
+        state.player.elapsedIntervalId = null;
+      }
+    }
+
+    function getCurrentPlayerExercise() {
+      return state.player.exercises[state.player.currentIndex];
+    }
+
+    function checkTemplateDiff(ex) {
+      if (
+        ex.targetSets !== ex.originalSets ||
+        ex.targetReps !== ex.originalReps ||
+        Math.abs(ex.workingWeight - ex.originalWeight) > 0.01
+      ) {
+        state.player.hasTemplateChanges = true;
+      }
+    }
+
+    function adjustPlayerSets(delta) {
+      const ex = getCurrentPlayerExercise();
+      if (!ex) return;
+      const next = Math.max(1, Math.min(20, ex.targetSets + delta));
+      if (next === ex.targetSets) return;
+
+      if (next > ex.targetSets) {
+        const last = ex.setRows[ex.setRows.length - 1];
+        const w = last ? convertWeight(last.weight, last.unit, state.unit) : ex.workingWeight;
+        const r = last ? last.reps : ex.targetReps;
+        ex.setRows.push({
+          id: `sr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          weight: w,
+          reps: r,
+          unit: state.unit,
+          completed: false
+        });
+      } else {
+        ex.setRows.pop();
+      }
+      ex.targetSets = ex.setRows.length;
+      checkTemplateDiff(ex);
+      renderPlayerExercise();
+    }
+
+    function adjustPlayerReps(delta) {
+      const ex = getCurrentPlayerExercise();
+      if (!ex) return;
+      const next = Math.max(1, Math.min(100, ex.targetReps + delta));
+      if (next === ex.targetReps) return;
+
+      ex.targetReps = next;
+      ex.setRows.forEach(row => {
+        if (!row.completed) row.reps = next;
+      });
+      checkTemplateDiff(ex);
+      renderPlayerExercise();
+    }
+
+    function adjustPlayerWeight(direction) {
+      const ex = getCurrentPlayerExercise();
+      if (!ex) return;
+      const step = state.unit === 'kg' ? 2.5 : 5;
+      const cur = convertWeight(ex.workingWeight, ex.unit, state.unit);
+      const next = Math.max(0, Math.round((cur + direction * step) * 10) / 10);
+
+      ex.workingWeight = next;
+      ex.unit = state.unit;
+      ex.setRows.forEach(row => {
+        if (!row.completed) {
+          row.weight = next;
+          row.unit = state.unit;
+        }
+      });
+      checkTemplateDiff(ex);
+      renderPlayerExercise();
+    }
+
+    function setPlayerWeightDirect(raw) {
+      const ex = getCurrentPlayerExercise();
+      if (!ex) return;
+      const parsed = raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0);
+      ex.workingWeight = parsed;
+      ex.unit = state.unit;
+      ex.setRows.forEach((row, idx) => {
+        if (!row.completed) {
+          row.weight = parsed;
+          row.unit = state.unit;
+          const inputEl = document.getElementById(`player-set-wt-${idx}`);
+          if (inputEl) inputEl.value = parsed > 0 ? parsed : '';
+        }
+      });
+      checkTemplateDiff(ex);
+    }
+
+    function onSetRowFieldChange(setIdx, field, raw) {
+      const ex = getCurrentPlayerExercise();
+      if (!ex || !ex.setRows[setIdx]) return;
+      const row = ex.setRows[setIdx];
+      if (field === 'weight') {
+        row.unit = state.unit;
+        row.weight = raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0);
+      } else if (field === 'reps') {
+        row.reps = Math.max(1, parseInt(raw, 10) || 1);
+      }
+    }
+
+    function toggleSetRowDone(setIdx) {
+      const ex = getCurrentPlayerExercise();
+      if (!ex || !ex.setRows[setIdx]) return;
+      ex.setRows[setIdx].completed = !ex.setRows[setIdx].completed;
+      if (ex.setRows[setIdx].completed) {
+        startRestTimer(state.restTimer.preset);
+      }
+      renderPlayerExercise();
+    }
+
+    function renderPlayerExercise() {
+      const total = state.player.exercises.length;
+      const idx = state.player.currentIndex;
+      const ex = state.player.exercises[idx];
+      if (!ex) return;
+
+      document.getElementById('player-workout-title').textContent = state.player.workoutTitle;
+      document.getElementById('player-step-badge').textContent = `${idx + 1} / ${total}`;
+      document.getElementById('player-progress-bar').style.width = `${((idx + 1) / total) * 100}%`;
+
+      document.getElementById('player-exercise-idx-label').textContent = `Exercise ${idx + 1} of ${total}`;
+      document.getElementById('player-muscle-badge').textContent = ex.muscleGroup;
+      document.getElementById('player-exercise-name').textContent = ex.name;
+
+      document.getElementById('player-sets-value').textContent = ex.targetSets;
+      document.getElementById('player-reps-value').textContent = ex.targetReps;
+      document.getElementById('player-weight-unit').textContent = state.unit.toUpperCase();
+
+      const stepLabel = state.unit === 'kg' ? '2.5' : '5';
+      document.getElementById('player-weight-dec-btn').innerHTML = `&minus;${stepLabel}`;
+      document.getElementById('player-weight-inc-btn').innerHTML = `+${stepLabel}`;
+
+      const displayWt = convertWeight(ex.workingWeight, ex.unit, state.unit);
+      const wtInput = document.getElementById('player-weight-input');
+      if (document.activeElement !== wtInput) {
+        wtInput.value = displayWt > 0 ? displayWt : '';
+      }
+
+      const doneCount = ex.setRows.filter(r => r.completed).length;
+      document.getElementById('player-sets-done-label').textContent = `${doneCount} of ${ex.setRows.length} done`;
+
+      const rowsContainer = document.getElementById('player-set-rows');
+      rowsContainer.innerHTML = ex.setRows.map((row, sIdx) => {
+        const rWt = convertWeight(row.weight, row.unit, state.unit);
+        const rowBg = row.completed
+          ? 'bg-emerald-500/10 border-emerald-500/35'
+          : 'bg-[#F8FAFC] dark:bg-[#0F172A]/70 border-[#E2E8F0] dark:border-slate-800';
+
+        return `
+          <div class="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl border ${rowBg} transition-colors">
+            <span class="text-xs font-bold tabular-nums w-11 ${row.completed ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#64748B] dark:text-slate-400'}">
+              Set ${sIdx + 1}
+            </span>
+
+            <div class="flex items-center gap-1.5">
+              <div class="inline-flex items-center bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 rounded-lg px-2 py-1">
+                <input type="number" id="player-set-wt-${sIdx}" step="0.5" min="0"
+                  value="${rWt > 0 ? rWt : ''}" placeholder="0"
+                  oninput="onSetRowFieldChange(${sIdx}, 'weight', this.value)"
+                  aria-label="Set ${sIdx + 1} weight"
+                  class="w-12 text-right text-xs font-bold text-[#0F172A] dark:text-white bg-transparent outline-none tabular-nums" />
+                <span class="text-[10px] text-[#64748B] dark:text-slate-400 ml-1">${state.unit}</span>
+              </div>
+
+              <span class="text-xs text-[#64748B]">&times;</span>
+
+              <div class="inline-flex items-center bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-700 rounded-lg px-2 py-1">
+                <input type="number" step="1" min="1" value="${row.reps}"
+                  oninput="onSetRowFieldChange(${sIdx}, 'reps', this.value)"
+                  aria-label="Set ${sIdx + 1} reps"
+                  class="w-8 text-right text-xs font-bold text-[#0F172A] dark:text-white bg-transparent outline-none tabular-nums" />
+                <span class="text-[10px] text-[#64748B] dark:text-slate-400 ml-1">reps</span>
+              </div>
+            </div>
+
+            <button type="button" onclick="toggleSetRowDone(${sIdx})"
+              aria-label="Toggle Set ${sIdx + 1} complete"
+              class="w-9 h-9 rounded-full flex items-center justify-center border transition-all shrink-0 active:scale-90 ${
+                row.completed
+                  ? 'bg-[#10B981] border-[#10B981] text-white shadow-2xs'
+                  : 'bg-white dark:bg-[#1E293B] border-slate-300 dark:border-slate-600 text-transparent hover:border-[#10B981]'
+              }">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      // Bottom Arrow Navigation
+      document.getElementById('player-prev-btn').disabled = idx === 0;
+
+      document.getElementById('player-dots-container').innerHTML = state.player.exercises.map((item, dIdx) => {
+        const isCurrent = dIdx === idx;
+        const allDone = item.setRows.every(r => r.completed);
+        let cls = 'h-2 rounded-full transition-all ';
+        if (isCurrent) cls += 'w-5 bg-[#10B981]';
+        else if (allDone) cls += 'w-2 bg-emerald-500/45';
+        else cls += 'w-2 bg-slate-300 dark:bg-slate-700';
+        return `<button type="button" onclick="jumpPlayerExercise(${dIdx})" aria-label="Exercise ${dIdx + 1}" class="${cls}"></button>`;
+      }).join('');
+
+      const nextBtn = document.getElementById('player-next-btn');
+      const isFinal = idx === total - 1;
+      if (isFinal) {
+        nextBtn.className = 'h-12 px-4 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shrink-0';
+        nextBtn.setAttribute('aria-label', 'Finish Workout');
+        nextBtn.innerHTML = `
+          <span>Finish Workout</span>
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        `;
+      } else {
+        nextBtn.className = 'w-12 h-12 rounded-xl bg-[#0F172A] dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white flex items-center justify-center active:scale-[0.98] transition-all shrink-0';
+        nextBtn.setAttribute('aria-label', 'Next exercise');
+        nextBtn.innerHTML = `
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        `;
+      }
+    }
+
+    function navigatePlayerExercise(delta) {
+      const next = state.player.currentIndex + delta;
+      if (next < 0 || next >= state.player.exercises.length) return;
+      state.player.currentIndex = next;
+      renderPlayerExercise();
+    }
+
+    function jumpPlayerExercise(idx) {
+      if (idx < 0 || idx >= state.player.exercises.length) return;
+      state.player.currentIndex = idx;
+      renderPlayerExercise();
+    }
+
+    function handlePlayerNextOrFinish() {
+      if (state.player.currentIndex < state.player.exercises.length - 1) {
+        navigatePlayerExercise(1);
+      } else {
+        finishActiveWorkout();
+      }
+    }
+
+    function promptExitWorkout() {
+      openConfirmDialog(
+        'Exit Workout?',
+        'Your current session progress has not been saved yet. Exit back to Workouts?',
+        () => {
+          stopPlayerElapsedTimer();
+          stopRestTimer();
+          switchTab('workouts');
+        }
+      );
+    }
+
+    /* ==========================================================================
+       8. REST TIMER PILL (60s / 90s)
+       ========================================================================== */
+
+    function selectRestPreset(seconds) {
+      state.restTimer.preset = seconds;
+      startRestTimer(seconds);
+    }
+
+    function startRestTimer(seconds) {
+      stopRestTimer();
+      state.restTimer.remaining = seconds;
+      state.restTimer.running = true;
+      updateRestTimerUI();
+
+      state.restTimer.intervalId = setInterval(() => {
+        if (state.restTimer.remaining > 0) {
+          state.restTimer.remaining -= 1;
+          updateRestTimerUI();
+        } else {
+          stopRestTimer();
+          document.getElementById('rest-countdown-text').textContent = 'Done';
+        }
+      }, 1000);
+    }
+
+    function toggleRestTimer() {
+      if (state.restTimer.running) {
+        stopRestTimer();
+      } else {
+        const startFrom = state.restTimer.remaining > 0 ? state.restTimer.remaining : state.restTimer.preset;
+        startRestTimer(startFrom);
+      }
+    }
+
+    function resetRestTimer() {
+      stopRestTimer();
+      state.restTimer.remaining = state.restTimer.preset;
+      updateRestTimerUI();
+    }
+
+    function stopRestTimer() {
+      if (state.restTimer.intervalId) {
+        clearInterval(state.restTimer.intervalId);
+        state.restTimer.intervalId = null;
+      }
+      state.restTimer.running = false;
+      updateRestTimerUI();
+    }
+
+    function updateRestTimerUI() {
+      const m = Math.floor(state.restTimer.remaining / 60);
+      const s = state.restTimer.remaining % 60;
+      document.getElementById('rest-countdown-text').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+      const dot = document.getElementById('rest-dot');
+      dot.className = state.restTimer.running
+        ? 'w-2 h-2 rounded-full bg-[#10B981] animate-pulse'
+        : 'w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600';
+
+      document.getElementById('rest-toggle-btn').textContent = state.restTimer.running ? 'Pause' : 'Start';
+
+      const p60 = document.getElementById('rest-preset-60');
+      const p90 = document.getElementById('rest-preset-90');
+      const activeCls = 'px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors';
+      const inactiveCls = 'px-2 py-0.5 rounded-full text-[11px] font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors';
+      p60.className = state.restTimer.preset === 60 ? activeCls : inactiveCls;
+      p90.className = state.restTimer.preset === 90 ? activeCls : inactiveCls;
+    }
+
+    /* ==========================================================================
+       9. WORKOUT COMPLETION FLOW
+       ========================================================================== */
+
+    function finishActiveWorkout() {
+      stopPlayerElapsedTimer();
+      stopRestTimer();
+
+      const durationMinutes = Math.max(1, Math.round(state.player.elapsedSeconds / 60));
+      let totalSets = 0;
+      let totalVolume = 0;
+
+      const loggedExercises = state.player.exercises.map(ex => {
+        const checkedRows = ex.setRows.filter(r => r.completed);
+        const rowsToRecord = checkedRows.length > 0 ? checkedRows : ex.setRows;
+
+        const cleanSets = rowsToRecord.map(r => {
+          const w = convertWeight(r.weight, r.unit, state.unit);
+          const reps = Math.max(1, parseInt(r.reps, 10) || 1);
+          totalSets += 1;
+          totalVolume += w * reps;
+          return { weight: w, reps, unit: state.unit };
+        });
+
+        return {
+          name: ex.name,
+          muscleGroup: ex.muscleGroup || detectMuscleGroup(ex.name),
+          sets: cleanSets
+        };
+      });
+
+      const session = {
+        id: `sess-${Date.now()}`,
+        workoutId: state.player.workoutId,
+        title: state.player.workoutTitle,
+        date: getTodayISO(),
+        timestamp: Date.now(),
+        durationMinutes,
+        exercises: loggedExercises
+      };
+
+      state.history.unshift(session);
+      saveHistory();
+
+      state.completion = {
+        workoutId: state.player.workoutId,
+        hasTemplateChanges: state.player.hasTemplateChanges,
+        adjustedExercises: state.player.exercises.map(ex => ({
+          id: ex.id,
+          name: ex.name,
+          muscleGroup: ex.muscleGroup,
+          sets: ex.targetSets,
+          reps: ex.targetReps,
+          weight: ex.workingWeight > 0 ? convertWeight(ex.workingWeight, ex.unit, state.unit) : '',
+          unit: state.unit
+        }))
+      };
+
+      document.getElementById('complete-subtitle').textContent = `${state.player.workoutTitle} · Saved to history & metrics`;
+      document.getElementById('complete-exercises').textContent = loggedExercises.length;
+      document.getElementById('complete-sets').textContent = totalSets;
+      document.getElementById('complete-duration').textContent = `${durationMinutes}m`;
+      document.getElementById('complete-volume').textContent = formatVolume(totalVolume);
+
+      const syncBox = document.getElementById('complete-sync-template-box');
+      const syncCheckbox = document.getElementById('complete-sync-checkbox');
+      if (state.completion.hasTemplateChanges && state.completion.workoutId) {
+        syncBox.classList.remove('hidden');
+        syncCheckbox.checked = true;
+      } else {
+        syncBox.classList.add('hidden');
+        syncCheckbox.checked = false;
+      }
+
+      document.getElementById('view-player').classList.add('hidden');
+      document.getElementById('view-complete').classList.remove('hidden');
+    }
+
+    function finishCompletionScreen() {
+      const syncChecked = document.getElementById('complete-sync-checkbox').checked;
+      if (syncChecked && state.completion.hasTemplateChanges && state.completion.workoutId) {
+        const idx = state.workouts.findIndex(w => w.id === state.completion.workoutId);
+        if (idx !== -1) {
+          state.workouts[idx].exercises = state.completion.adjustedExercises;
+          saveWorkouts();
+          showToast('Workout template updated');
+        }
+      }
+      switchTab('workouts');
+    }
+
+    /* ==========================================================================
+       10. TAB 2: METRICS ("OVER-THE-TOP", DATA-DENSE ANALYTICS ENGINE)
+       ========================================================================== */
+
+    function setMetricsTimeframe(tf) {
+      state.metricsTimeframe = tf;
+      savePrefs();
+      renderMetricsTab();
+    }
+
+    function setBalanceChartMode(mode) {
+      state.balanceChartMode = mode;
+      const radarBtn = document.getElementById('balance-mode-radar');
+      const polarBtn = document.getElementById('balance-mode-polar');
+      const active = 'px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white dark:bg-slate-800 text-[#0F172A] dark:text-white shadow-2xs';
+      const inactive = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#64748B] dark:text-slate-400';
+      radarBtn.className = mode === 'radar' ? active : inactive;
+      polarBtn.className = mode === 'polarArea' ? active : inactive;
+      renderMetricsTab();
+    }
+
+    function onProgressionExerciseChange(exName) {
+      state.selectedProgressionExercise = exName;
+      renderExerciseProgressionChart(getFilteredSessions());
+    }
+
+    function getFilteredSessions() {
+      const tf = state.metricsTimeframe;
+      if (tf === 'ALL') return [...state.history];
+      const daysMap = { '7D': 6, '30D': 29, '90D': 89, '1Y': 364 };
+      const cutoffISO = getDaysAgoISO(daysMap[tf] || 29);
+      return state.history.filter(s => s.date >= cutoffISO);
+    }
+
+    function destroyChart(key) {
+      if (chartInstances[key]) {
+        chartInstances[key].destroy();
+        chartInstances[key] = null;
+      }
+    }
+
+    function getChartColors() {
+      const isDark = state.theme === 'dark';
+      return {
+        text: isDark ? '#94A3B8' : '#64748B',
+        title: isDark ? '#F8FAFC' : '#0F172A',
+        grid: isDark ? 'rgba(51, 65, 85, 0.45)' : 'rgba(226, 232, 240, 0.85)',
+        tooltipBg: isDark ? '#0F172A' : '#1E293B'
+      };
+    }
+
+    function renderMetricsTab() {
+      document.querySelectorAll('.tf-btn').forEach(btn => {
+        const tf = btn.getAttribute('data-tf');
+        if (tf === state.metricsTimeframe) {
+          btn.className = 'tf-btn px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-[#10B981] text-white shadow-2xs';
+        } else {
+          btn.className = 'tf-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white';
+        }
+      });
+
+      const emptyBanner = document.getElementById('metrics-empty-banner');
+      if (state.history.length === 0) emptyBanner.classList.remove('hidden');
+      else emptyBanner.classList.add('hidden');
+
+      const filtered = getFilteredSessions();
+      document.getElementById('metrics-filter-scope-label').textContent =
+        `${state.metricsTimeframe === 'ALL' ? 'All-Time' : 'Last ' + state.metricsTimeframe} · ${filtered.length} ${filtered.length === 1 ? 'session' : 'sessions'}`;
+      document.getElementById('metrics-unit-badge').textContent = state.unit.toUpperCase();
+      document.getElementById('kpi-period-tag').textContent = `Period: ${state.metricsTimeframe}`;
+
+      renderHeroKPIGrid(filtered);
+      renderMuscleGroupSection(filtered);
+      renderDailyVolumeSection(filtered);
+      renderExerciseProgressionChart(filtered);
+      renderCumulativeTonnageChart(filtered);
+      renderHeatmapAndZonesSection(filtered);
+      renderPRLeaderboard();
+    }
+
+    /* --- SECTION 2: 12-CARD HERO KPI BENTO GRID --- */
+    function renderHeroKPIGrid(sessions) {
+      let totalVolume = 0;
+      let totalSets = 0;
+      let totalReps = 0;
+      let totalExercises = 0;
+      let totalDurationMins = 0;
+      let peakSessionVol = 0;
+
+      let heaviestWeight = 0;
+      let heaviestEx = '—';
+
+      let highest1RM = 0;
+      let highest1RMEx = '—';
+
+      const uniqueExercisesSet = new Set();
+
+      sessions.forEach(sess => {
+        let sessVol = 0;
+        totalDurationMins += (parseInt(sess.durationMinutes, 10) || 0);
+        const exList = sess.exercises || [];
+        totalExercises += exList.length;
+
+        exList.forEach(ex => {
+          uniqueExercisesSet.add(ex.name);
+          (ex.sets || []).forEach(s => {
+            const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+            const r = parseInt(s.reps, 10) || 0;
+            const vol = w * r;
+
+            totalSets += 1;
+            totalReps += r;
+            totalVolume += vol;
+            sessVol += vol;
+
+            if (w > heaviestWeight) {
+              heaviestWeight = w;
+              heaviestEx = `${ex.name} (${r} reps)`;
+            }
+
+            // Epley Formula: weight * (1 + reps / 30)
+            const est1RM = r === 1 ? w : w * (1 + r / 30);
+            if (est1RM > highest1RM) {
+              highest1RM = est1RM;
+              highest1RMEx = `${ex.name} (${w}${state.unit}×${r})`;
+            }
+          });
+        });
+
+        if (sessVol > peakSessionVol) peakSessionVol = sessVol;
+      });
+
+      const count = sessions.length;
+      const metricTons = state.unit === 'kg'
+        ? totalVolume / 1000
+        : (totalVolume / KG_TO_LBS) / 1000;
+
+      let weeksSpan = 1;
+      if (count > 0) {
+        const sortedAsc = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
+        const firstDate = parseLocalDate(sortedAsc[0].date);
+        const lastDate = parseLocalDate(getTodayISO());
+        const diffDays = Math.max(1, Math.round((lastDate - firstDate) / 86400000) + 1);
+        weeksSpan = Math.max(1, diffDays / 7);
+      }
+
+      const { currentStreak, bestStreak } = computeWeeklyStreaks(state.history);
+
+      const avgVolWorkout = count > 0 ? totalVolume / count : 0;
+      const avgVolSet = totalSets > 0 ? totalVolume / totalSets : 0;
+      const avgWtRep = totalReps > 0 ? totalVolume / totalReps : 0;
+      const avgSetsWorkout = count > 0 ? totalSets / count : 0;
+      const avgExWorkout = count > 0 ? totalExercises / count : 0;
+      const avgDuration = count > 0 ? totalDurationMins / count : 0;
+      const totalHours = totalDurationMins / 60;
+      const avgRepsSet = totalSets > 0 ? totalReps / totalSets : 0;
+
+      document.getElementById('kpi-total-volume').textContent = formatVolume(totalVolume);
+      document.getElementById('kpi-total-volume-sub').textContent = `${metricTons.toFixed(2)} metric tons`;
+
+      document.getElementById('kpi-total-workouts').textContent = count;
+      document.getElementById('kpi-total-workouts-sub').textContent = `${(count / weeksSpan).toFixed(1)} / wk avg`;
+
+      document.getElementById('kpi-total-sets').textContent = totalSets.toLocaleString();
+      document.getElementById('kpi-total-sets-sub').textContent = `${uniqueExercisesSet.size} unique exercises`;
+
+      document.getElementById('kpi-total-reps').textContent = totalReps.toLocaleString();
+      document.getElementById('kpi-total-reps-sub').textContent = `${avgRepsSet.toFixed(1)} reps / set`;
+
+      document.getElementById('kpi-weekly-streak').textContent = `${currentStreak} ${currentStreak === 1 ? 'wk' : 'wks'}`;
+      document.getElementById('kpi-weekly-streak-sub').textContent = `Best: ${bestStreak} ${bestStreak === 1 ? 'wk' : 'wks'}`;
+
+      document.getElementById('kpi-avg-vol-workout').textContent = formatVolume(avgVolWorkout);
+      document.getElementById('kpi-avg-vol-workout-sub').textContent = `Peak: ${formatVolume(peakSessionVol)}`;
+
+      document.getElementById('kpi-avg-vol-set').textContent = `${Math.round(avgVolSet).toLocaleString()} ${state.unit}`;
+      document.getElementById('kpi-avg-vol-set-sub').textContent = 'Tonnage per set';
+
+      document.getElementById('kpi-avg-wt-rep').textContent = `${avgWtRep.toFixed(1)} ${state.unit}`;
+      document.getElementById('kpi-avg-wt-rep-sub').textContent = 'Load per rep';
+
+      document.getElementById('kpi-avg-sets-workout').textContent = avgSetsWorkout.toFixed(1);
+      document.getElementById('kpi-avg-ex-workout-sub').textContent = `${avgExWorkout.toFixed(1)} exercises / session`;
+
+      document.getElementById('kpi-avg-duration').textContent = `${Math.round(avgDuration)} min`;
+      document.getElementById('kpi-total-hours-sub').textContent = `${totalHours.toFixed(1)} hrs total trained`;
+
+      document.getElementById('kpi-max-lift').textContent = `${heaviestWeight} ${state.unit}`;
+      document.getElementById('kpi-max-lift-ex').textContent = heaviestEx;
+
+      document.getElementById('kpi-max-1rm').textContent = `${Math.round(highest1RM * 10) / 10} ${state.unit}`;
+      document.getElementById('kpi-max-1rm-ex').textContent = highest1RMEx;
+    }
+
+    function computeWeeklyStreaks(allSessions) {
+      if (!allSessions.length) return { currentStreak: 0, bestStreak: 0 };
+      const weekSet = new Set(allSessions.map(s => getMondayISO(s.date)));
+      const sortedWeeks = [...weekSet].sort();
+
+      let bestStreak = 1;
+      let run = 1;
+      for (let i = 1; i < sortedWeeks.length; i++) {
+        const prev = parseLocalDate(sortedWeeks[i - 1]);
+        const curr = parseLocalDate(sortedWeeks[i]);
+        const diffDays = Math.round((curr - prev) / 86400000);
+        if (diffDays === 7) {
+          run += 1;
+          if (run > bestStreak) bestStreak = run;
+        } else {
+          run = 1;
+        }
+      }
+
+      const thisMonday = getMondayISO(getTodayISO());
+      const lastMonday = getMondayISO(getDaysAgoISO(7));
+      let anchor = weekSet.has(thisMonday) ? thisMonday : (weekSet.has(lastMonday) ? lastMonday : null);
+
+      let currentStreak = 0;
+      if (anchor) {
+        let cursor = parseLocalDate(anchor);
+        while (weekSet.has(toLocalISO(cursor))) {
+          currentStreak += 1;
+          cursor.setDate(cursor.getDate() - 7);
+        }
+      }
+
+      return { currentStreak, bestStreak };
+    }
+
+    /* --- SECTION 3: WEEKLY VOLUME PER MUSCLE GROUP --- */
+    function renderMuscleGroupSection(filteredSessions) {
+      const colors = getChartColors();
+
+      const currentMonday = getMondayISO(getTodayISO());
+      const lastMonday = getMondayISO(getDaysAgoISO(7));
+      const weekMondays = [];
+      for (let w = 7; w >= 0; w--) {
+        const d = parseLocalDate(currentMonday);
+        d.setDate(d.getDate() - w * 7);
+        weekMondays.push(toLocalISO(d));
+      }
+
+      const weeklyMuscleVol = {};
+      weekMondays.forEach(wm => {
+        weeklyMuscleVol[wm] = {};
+        MUSCLE_GROUPS.forEach(m => { weeklyMuscleVol[wm][m] = 0; });
+      });
+
+      const thisWeekStats = {};
+      const lastWeekVol = {};
+      MUSCLE_GROUPS.forEach(m => {
+        thisWeekStats[m] = { sets: 0, reps: 0, volume: 0 };
+        lastWeekVol[m] = 0;
+      });
+
+      state.history.forEach(sess => {
+        const wm = getMondayISO(sess.date);
+        (sess.exercises || []).forEach(ex => {
+          const muscle = MUSCLE_GROUPS.includes(ex.muscleGroup) ? ex.muscleGroup : detectMuscleGroup(ex.name);
+          (ex.sets || []).forEach(s => {
+            const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+            const r = parseInt(s.reps, 10) || 0;
+            const vol = w * r;
+
+            if (weeklyMuscleVol[wm]) {
+              weeklyMuscleVol[wm][muscle] += vol;
+            }
+            if (wm === currentMonday) {
+              thisWeekStats[muscle].sets += 1;
+              thisWeekStats[muscle].reps += r;
+              thisWeekStats[muscle].volume += vol;
+            } else if (wm === lastMonday) {
+              lastWeekVol[muscle] += vol;
+            }
+          });
+        });
+      });
+
+      // 3A. Stacked Bar Chart
+      destroyChart('muscleWeekly');
+      const ctxStacked = document.getElementById('chart-muscle-weekly').getContext('2d');
+      const weekLabels = weekMondays.map(wm => formatShortDate(wm));
+      const stackedDatasets = MUSCLE_GROUPS.map(m => ({
+        label: m,
+        data: weekMondays.map(wm => Math.round(weeklyMuscleVol[wm][m])),
+        backgroundColor: MUSCLE_COLORS[m],
+        borderRadius: 2
+      }));
+
+      chartInstances.muscleWeekly = new Chart(ctxStacked, {
+        type: 'bar',
+        data: { labels: weekLabels, datasets: stackedDatasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                boxWidth: 8,
+                boxHeight: 8,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 10, family: 'Inter' },
+                color: colors.text,
+                padding: 8
+              }
+            },
+            tooltip: {
+              backgroundColor: colors.tooltipBg,
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} ${state.unit}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              grid: { display: false },
+              ticks: { color: colors.text, font: { size: 10 } }
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              grid: { color: colors.grid },
+              ticks: {
+                color: colors.text,
+                font: { size: 10 },
+                callback: v => formatCompactNumber(v)
+              }
+            }
+          }
+        }
+      });
+
+      // 3B. Weekly Muscle Group Breakdown Table
+      const totalThisWeekVol = MUSCLE_GROUPS.reduce((sum, m) => sum + thisWeekStats[m].volume, 0);
+      document.getElementById('muscle-this-week-total-label').textContent = `This Wk: ${formatVolume(totalThisWeekVol)}`;
+
+      const tbody = document.getElementById('muscle-breakdown-tbody');
+      tbody.innerHTML = MUSCLE_GROUPS.map(m => {
+        const st = thisWeekStats[m];
+        const prev = lastWeekVol[m];
+        const sharePct = totalThisWeekVol > 0 ? (st.volume / totalThisWeekVol) * 100 : 0;
+
+        let wowHtml = `<span class="text-[#64748B] dark:text-slate-500">—</span>`;
+        if (prev > 0 && st.volume > 0) {
+          const delta = ((st.volume - prev) / prev) * 100;
+          const sign = delta >= 0 ? '+' : '';
+          const badgeCls = delta >= 0
+            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            : 'bg-rose-500/10 text-rose-500';
+          wowHtml = `<span class="px-1.5 py-0.5 rounded font-semibold text-[10px] ${badgeCls}">${sign}${delta.toFixed(0)}%</span>`;
+        } else if (prev === 0 && st.volume > 0) {
+          wowHtml = `<span class="px-1.5 py-0.5 rounded font-semibold text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">NEW</span>`;
+        }
+
+        return `
+          <tr class="hover:bg-[#F8FAFC]/80 dark:hover:bg-slate-800/40">
+            <td class="py-2 px-3">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${MUSCLE_COLORS[m]}"></span>
+                <span class="font-semibold text-[#0F172A] dark:text-slate-200">${m}</span>
+              </div>
+              <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-1 overflow-hidden">
+                <div class="h-full rounded-full" style="width: ${sharePct}%; background-color: ${MUSCLE_COLORS[m]}"></div>
+              </div>
+            </td>
+            <td class="py-2 px-2 text-right font-medium text-[#0F172A] dark:text-slate-200">${st.sets}</td>
+            <td class="py-2 px-2 text-right text-[#64748B] dark:text-slate-400">${st.reps}</td>
+            <td class="py-2 px-2 text-right font-semibold text-[#0F172A] dark:text-white">${Math.round(st.volume).toLocaleString()} ${state.unit}</td>
+            <td class="py-2 px-2 text-right text-[#64748B] dark:text-slate-400">${sharePct.toFixed(0)}%</td>
+            <td class="py-2 px-3 text-right">${wowHtml}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // 3C. Muscular Balance Radar / Polar Area Chart
+      const periodMuscleVol = {};
+      MUSCLE_GROUPS.forEach(m => { periodMuscleVol[m] = 0; });
+
+      filteredSessions.forEach(sess => {
+        (sess.exercises || []).forEach(ex => {
+          const m = MUSCLE_GROUPS.includes(ex.muscleGroup) ? ex.muscleGroup : detectMuscleGroup(ex.name);
+          (ex.sets || []).forEach(s => {
+            periodMuscleVol[m] += convertWeight(s.weight || 0, s.unit || 'kg', state.unit) * (parseInt(s.reps, 10) || 0);
+          });
+        });
+      });
+
+      let pushVol = 0, pullVol = 0, legsVol = 0;
+      MUSCLE_GROUPS.forEach(m => {
+        if (PUSH_MUSCLES.has(m)) pushVol += periodMuscleVol[m];
+        else if (PULL_MUSCLES.has(m)) pullVol += periodMuscleVol[m];
+        else legsVol += periodMuscleVol[m];
+      });
+      const pplTotal = pushVol + pullVol + legsVol;
+
+      document.getElementById('ppl-push-pct').textContent = pplTotal > 0 ? `${Math.round((pushVol / pplTotal) * 100)}%` : '0%';
+      document.getElementById('ppl-push-vol').textContent = formatVolume(pushVol);
+      document.getElementById('ppl-pull-pct').textContent = pplTotal > 0 ? `${Math.round((pullVol / pplTotal) * 100)}%` : '0%';
+      document.getElementById('ppl-pull-vol').textContent = formatVolume(pullVol);
+      document.getElementById('ppl-legs-pct').textContent = pplTotal > 0 ? `${Math.round((legsVol / pplTotal) * 100)}%` : '0%';
+      document.getElementById('ppl-legs-vol').textContent = formatVolume(legsVol);
+
+      destroyChart('muscleBalance');
+      const ctxBalance = document.getElementById('chart-muscle-balance').getContext('2d');
+
+      if (state.balanceChartMode === 'radar') {
+        chartInstances.muscleBalance = new Chart(ctxBalance, {
+          type: 'radar',
+          data: {
+            labels: MUSCLE_GROUPS,
+            datasets: [{
+              label: `Volume (${state.unit})`,
+              data: MUSCLE_GROUPS.map(m => Math.round(periodMuscleVol[m])),
+              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+              borderColor: '#10B981',
+              borderWidth: 2,
+              pointBackgroundColor: '#10B981',
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: colors.tooltipBg,
+                callbacks: {
+                  label: ctx => `${ctx.label}: ${ctx.parsed.r.toLocaleString()} ${state.unit}`
+                }
+              }
+            },
+            scales: {
+              r: {
+                beginAtZero: true,
+                grid: { color: colors.grid },
+                angleLines: { color: colors.grid },
+                pointLabels: { color: colors.text, font: { size: 10, weight: '600' } },
+                ticks: { display: false }
+              }
+            }
+          }
+        });
+      } else {
+        chartInstances.muscleBalance = new Chart(ctxBalance, {
+          type: 'polarArea',
+          data: {
+            labels: ['Push (Chest/Shld/Tri)', 'Pull (Back/Bi)', 'Legs & Core'],
+            datasets: [{
+              data: [Math.round(pushVol), Math.round(pullVol), Math.round(legsVol)],
+              backgroundColor: [
+                'rgba(16, 185, 129, 0.65)',
+                'rgba(59, 130, 246, 0.65)',
+                'rgba(245, 158, 11, 0.65)'
+              ],
+              borderColor: ['#10B981', '#3B82F6', '#F59E0B'],
+              borderWidth: 1.5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { color: colors.text, font: { size: 10 }, boxWidth: 10 }
+              },
+              tooltip: {
+                backgroundColor: colors.tooltipBg,
+                callbacks: {
+                  label: ctx => `${ctx.label}: ${ctx.parsed.r.toLocaleString()} ${state.unit}`
+                }
+              }
+            },
+            scales: {
+              r: {
+                beginAtZero: true,
+                grid: { color: colors.grid },
+                ticks: { display: false }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    /* --- SECTION 4: TOTAL WEIGHT VOLUME PER WORKOUT DAY --- */
+    function renderDailyVolumeSection(filteredSessions) {
+      const colors = getChartColors();
+
+      const sortedAsc = [...filteredSessions].sort((a, b) => a.date.localeCompare(b.date) || (a.timestamp || 0) - (b.timestamp || 0));
+
+      const dayRows = sortedAsc.map(sess => {
+        let sets = 0, reps = 0, vol = 0;
+        (sess.exercises || []).forEach(ex => {
+          (ex.sets || []).forEach(s => {
+            sets += 1;
+            const r = parseInt(s.reps, 10) || 0;
+            const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+            reps += r;
+            vol += w * r;
+          });
+        });
+        return {
+          date: sess.date,
+          title: sess.title,
+          sets,
+          reps,
+          volume: vol,
+          wtPerRep: reps > 0 ? vol / reps : 0,
+          duration: sess.durationMinutes || 0
+        };
+      });
+
+      const rollingAvg = dayRows.map((_, idx) => {
+        const start = Math.max(0, idx - 2);
+        const slice = dayRows.slice(start, idx + 1);
+        const avg = slice.reduce((acc, item) => acc + item.volume, 0) / slice.length;
+        return Math.round(avg);
+      });
+
+      destroyChart('dailyVolume');
+      const ctxDaily = document.getElementById('chart-daily-volume').getContext('2d');
+      chartInstances.dailyVolume = new Chart(ctxDaily, {
+        data: {
+          labels: dayRows.map(r => formatShortDate(r.date)),
+          datasets: [
+            {
+              type: 'bar',
+              label: `Session Volume (${state.unit})`,
+              data: dayRows.map(r => Math.round(r.volume)),
+              backgroundColor: 'rgba(16, 185, 129, 0.75)',
+              hoverBackgroundColor: '#10B981',
+              borderRadius: 6,
+              maxBarThickness: 28
+            },
+            {
+              type: 'line',
+              label: '3-Session Rolling Avg',
+              data: rollingAvg,
+              borderColor: '#3B82F6',
+              backgroundColor: '#3B82F6',
+              borderWidth: 2,
+              tension: 0.35,
+              pointRadius: 2.5
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: colors.text, font: { size: 10 }, boxWidth: 10, padding: 10 }
+            },
+            tooltip: {
+              backgroundColor: colors.tooltipBg,
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} ${state.unit}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: colors.text, font: { size: 10 }, maxRotation: 0 }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: colors.grid },
+              ticks: {
+                color: colors.text,
+                font: { size: 10 },
+                callback: v => formatCompactNumber(v)
+              }
+            }
+          }
+        }
+      });
+
+      const dowNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const dowStats = dowNames.map(name => ({ name, count: 0, totalVol: 0 }));
+
+      dayRows.forEach(r => {
+        const jsDay = parseLocalDate(r.date).getDay();
+        const monIdx = jsDay === 0 ? 6 : jsDay - 1;
+        dowStats[monIdx].count += 1;
+        dowStats[monIdx].totalVol += r.volume;
+      });
+
+      let peakIdx = -1;
+      let peakAvgVol = 0;
+      dowStats.forEach((d, idx) => {
+        const avg = d.count > 0 ? d.totalVol / d.count : 0;
+        if (avg > peakAvgVol) {
+          peakAvgVol = avg;
+          peakIdx = idx;
+        }
+      });
+
+      document.getElementById('peak-dow-label').textContent =
+        peakIdx !== -1 ? `Peak Day: ${dowStats[peakIdx].name} (${formatVolume(peakAvgVol)} avg)` : 'Peak Day: —';
+
+      document.getElementById('dow-performance-strip').innerHTML = dowStats.map((d, idx) => {
+        const avg = d.count > 0 ? d.totalVol / d.count : 0;
+        const isPeak = idx === peakIdx && peakAvgVol > 0;
+        const cardCls = isPeak
+          ? 'bg-emerald-500/12 border-emerald-500/50 text-emerald-700 dark:text-emerald-300'
+          : 'bg-[#F8FAFC] dark:bg-slate-900/70 border-[#E2E8F0] dark:border-slate-800 text-[#0F172A] dark:text-slate-200';
+
+        return `
+          <div class="border rounded-xl p-1.5 text-center tabular-nums ${cardCls}">
+            <div class="text-[10px] font-bold">${d.name}</div>
+            <div class="text-xs font-extrabold mt-0.5">${d.count}x</div>
+            <div class="text-[9px] text-[#64748B] dark:text-slate-400 truncate mt-0.5">${avg > 0 ? formatCompactNumber(avg) : '0'}</div>
+          </div>
+        `;
+      }).join('');
+
+      const reversedRows = [...dayRows].reverse();
+      document.getElementById('ledger-row-count').textContent = `${reversedRows.length} ${reversedRows.length === 1 ? 'day' : 'days'}`;
+      const ledgerBody = document.getElementById('daily-ledger-tbody');
+
+      if (reversedRows.length === 0) {
+        ledgerBody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-6 text-center text-xs text-[#64748B] dark:text-slate-400">
+              No workout days recorded in this timeframe.
+            </td>
+          </tr>
+        `;
+      } else {
+        ledgerBody.innerHTML = reversedRows.map(r => `
+          <tr class="hover:bg-[#F8FAFC]/80 dark:hover:bg-slate-800/40">
+            <td class="py-2 px-3 font-medium text-[#64748B] dark:text-slate-400 whitespace-nowrap">${formatShortDate(r.date)}</td>
+            <td class="py-2 px-2 font-semibold text-[#0F172A] dark:text-white max-w-[110px] truncate">${escapeHtml(r.title)}</td>
+            <td class="py-2 px-2 text-right text-[#0F172A] dark:text-slate-200">${r.sets}</td>
+            <td class="py-2 px-2 text-right text-[#64748B] dark:text-slate-400">${r.reps}</td>
+            <td class="py-2 px-2 text-right font-bold text-[#10B981] whitespace-nowrap">${Math.round(r.volume).toLocaleString()} ${state.unit}</td>
+            <td class="py-2 px-2 text-right text-[#64748B] dark:text-slate-400 whitespace-nowrap">${r.wtPerRep.toFixed(1)}</td>
+            <td class="py-2 px-3 text-right text-[#64748B] dark:text-slate-400 whitespace-nowrap">${r.duration}m</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    /* --- SECTION 5A: EXERCISE WEIGHT & VOLUME PROGRESSION INSPECTOR --- */
+    function renderExerciseProgressionChart(filteredSessions) {
+      const colors = getChartColors();
+      const selectEl = document.getElementById('progression-exercise-select');
+
+      const allExNames = [];
+      const seen = new Set();
+      state.history.forEach(sess => {
+        (sess.exercises || []).forEach(ex => {
+          if (ex.name && !seen.has(ex.name)) {
+            seen.add(ex.name);
+            allExNames.push(ex.name);
+          }
+        });
+      });
+
+      if (allExNames.length === 0) {
+        selectEl.innerHTML = `<option value="">No exercises logged yet</option>`;
+        state.selectedProgressionExercise = '';
+      } else {
+        if (!state.selectedProgressionExercise || !seen.has(state.selectedProgressionExercise)) {
+          state.selectedProgressionExercise = allExNames[0];
+        }
+        selectEl.innerHTML = allExNames.map(name =>
+          `<option value="${escapeHtml(name)}" ${name === state.selectedProgressionExercise ? 'selected' : ''}>${escapeHtml(name)}</option>`
+        ).join('');
+      }
+
+      const sortedAsc = [...filteredSessions].sort((a, b) => a.date.localeCompare(b.date) || (a.timestamp || 0) - (b.timestamp || 0));
+      const points = [];
+
+      if (state.selectedProgressionExercise) {
+        sortedAsc.forEach(sess => {
+          const matching = (sess.exercises || []).filter(e => e.name === state.selectedProgressionExercise);
+          if (!matching.length) return;
+
+          let maxWt = 0;
+          let max1RM = 0;
+          let exVol = 0;
+
+          matching.forEach(ex => {
+            (ex.sets || []).forEach(s => {
+              const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+              const r = parseInt(s.reps, 10) || 0;
+              exVol += w * r;
+              if (w > maxWt) maxWt = w;
+              const e1rm = r === 1 ? w : w * (1 + r / 30);
+              if (e1rm > max1RM) max1RM = e1rm;
+            });
+          });
+
+          points.push({
+            date: sess.date,
+            maxWt: Math.round(maxWt * 10) / 10,
+            max1RM: Math.round(max1RM * 10) / 10,
+            volume: Math.round(exVol)
+          });
+        });
+      }
+
+      if (points.length === 0) {
+        document.getElementById('prog-start-latest').textContent = '—';
+        document.getElementById('prog-gain-pct').textContent = '0%';
+        document.getElementById('prog-peak-1rm').textContent = `0 ${state.unit}`;
+      } else {
+        const firstWt = points[0].maxWt;
+        const latestWt = points[points.length - 1].maxWt;
+        const peak1RM = Math.max(...points.map(p => p.max1RM));
+        const pctGain = firstWt > 0 ? ((latestWt - firstWt) / firstWt) * 100 : 0;
+
+        document.getElementById('prog-start-latest').textContent = `${firstWt} → ${latestWt} ${state.unit}`;
+        const sign = pctGain >= 0 ? '+' : '';
+        document.getElementById('prog-gain-pct').textContent = `${sign}${pctGain.toFixed(1)}%`;
+        document.getElementById('prog-peak-1rm').textContent = `${peak1RM} ${state.unit}`;
+      }
+
+      destroyChart('exerciseProgression');
+      const ctxProg = document.getElementById('chart-exercise-progression').getContext('2d');
+      chartInstances.exerciseProgression = new Chart(ctxProg, {
+        type: 'line',
+        data: {
+          labels: points.map(p => formatShortDate(p.date)),
+          datasets: [
+            {
+              label: `Max Weight (${state.unit})`,
+              data: points.map(p => p.maxWt),
+              borderColor: '#10B981',
+              backgroundColor: '#10B981',
+              borderWidth: 2.5,
+              tension: 0.3,
+              pointRadius: 3.5,
+              yAxisID: 'y'
+            },
+            {
+              label: `Est. 1RM (${state.unit})`,
+              data: points.map(p => p.max1RM),
+              borderColor: '#8B5CF6',
+              backgroundColor: '#8B5CF6',
+              borderDash: [4, 4],
+              borderWidth: 2,
+              tension: 0.3,
+              pointRadius: 3,
+              yAxisID: 'y'
+            },
+            {
+              label: `Session Vol (${state.unit})`,
+              data: points.map(p => p.volume),
+              borderColor: '#3B82F6',
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+              borderWidth: 1.5,
+              fill: true,
+              tension: 0.3,
+              pointRadius: 2.5,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: colors.text, font: { size: 10 }, boxWidth: 10, padding: 8 }
+            },
+            tooltip: { backgroundColor: colors.tooltipBg }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: colors.text, font: { size: 10 } }
+            },
+            y: {
+              type: 'linear',
+              position: 'left',
+              beginAtZero: true,
+              grid: { color: colors.grid },
+              ticks: { color: colors.text, font: { size: 10 } }
+            },
+            y1: {
+              type: 'linear',
+              position: 'right',
+              beginAtZero: true,
+              grid: { drawOnChartArea: false },
+              ticks: {
+                color: '#3B82F6',
+                font: { size: 10 },
+                callback: v => formatCompactNumber(v)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    /* --- SECTION 5B: CUMULATIVE LIFETIME TONNAGE AREA CHART --- */
+    function renderCumulativeTonnageChart(filteredSessions) {
+      const colors = getChartColors();
+      const sortedAsc = [...filteredSessions].sort((a, b) => a.date.localeCompare(b.date) || (a.timestamp || 0) - (b.timestamp || 0));
+
+      let running = 0;
+      const labels = [];
+      const cumulativeData = [];
+
+      sortedAsc.forEach(sess => {
+        let sessVol = 0;
+        (sess.exercises || []).forEach(ex => {
+          (ex.sets || []).forEach(s => {
+            sessVol += convertWeight(s.weight || 0, s.unit || 'kg', state.unit) * (parseInt(s.reps, 10) || 0);
+          });
+        });
+        running += sessVol;
+        labels.push(formatShortDate(sess.date));
+        cumulativeData.push(Math.round(running));
+      });
+
+      const carWeight = state.unit === 'kg' ? 1400 : 3086;
+      const carsCount = running / carWeight;
+      document.getElementById('tonnage-equivalence-badge').textContent =
+        `${carsCount.toFixed(1)} compact cars lifted`;
+
+      destroyChart('cumulativeTonnage');
+      const ctxCum = document.getElementById('chart-cumulative-tonnage').getContext('2d');
+      chartInstances.cumulativeTonnage = new Chart(ctxCum, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: `Cumulative Tonnage (${state.unit})`,
+            data: cumulativeData,
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.16)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#10B981'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: colors.tooltipBg,
+              callbacks: {
+                label: ctx => `Cumulative: ${ctx.parsed.y.toLocaleString()} ${state.unit}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: colors.text, font: { size: 10 } }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: colors.grid },
+              ticks: {
+                color: colors.text,
+                font: { size: 10 },
+                callback: v => formatCompactNumber(v)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    /* --- SECTION 6A & 6B: 84-DAY HEATMAP & REP RANGE TRAINING ZONES --- */
+    function renderHeatmapAndZonesSection(filteredSessions) {
+      const colors = getChartColors();
+
+      const currentMonday = parseLocalDate(getMondayISO(getTodayISO()));
+      const startMonday = new Date(currentMonday);
+      startMonday.setDate(startMonday.getDate() - 11 * 7);
+
+      const dailyVolMap = {};
+      state.history.forEach(sess => {
+        let vol = 0;
+        (sess.exercises || []).forEach(ex => {
+          (ex.sets || []).forEach(s => {
+            vol += convertWeight(s.weight || 0, s.unit || 'kg', state.unit) * (parseInt(s.reps, 10) || 0);
+          });
+        });
+        dailyVolMap[sess.date] = (dailyVolMap[sess.date] || 0) + vol;
+      });
+
+      const all84Days = [];
+      for (let i = 0; i < 84; i++) {
+        const d = new Date(startMonday);
+        d.setDate(startMonday.getDate() + i);
+        const iso = toLocalISO(d);
+        all84Days.push({ iso, vol: dailyVolMap[iso] || 0 });
+      }
+
+      const maxDayVol = Math.max(0, ...all84Days.map(d => d.vol));
+      const activeDaysCount = all84Days.filter(d => d.vol > 0).length;
+      const restDaysCount = 84 - activeDaysCount;
+      const freqPerWeek = activeDaysCount / 12;
+
+      document.getElementById('heatmap-active-days').textContent = `${activeDaysCount}d`;
+      document.getElementById('heatmap-rest-days').textContent = `${restDaysCount}d`;
+      document.getElementById('heatmap-freq-wk').textContent = `${freqPerWeek.toFixed(1)}/wk`;
+
+      const columnsHtml = [];
+      for (let col = 0; col < 12; col++) {
+        const cells = [];
+        for (let row = 0; row < 7; row++) {
+          const item = all84Days[col * 7 + row];
+          let bgCls = 'bg-slate-200/80 dark:bg-slate-800';
+          if (item.vol > 0 && maxDayVol > 0) {
+            const ratio = item.vol / maxDayVol;
+            if (ratio <= 0.25) bgCls = 'bg-emerald-200 dark:bg-emerald-900';
+            else if (ratio <= 0.5) bgCls = 'bg-emerald-400 dark:bg-emerald-700';
+            else if (ratio <= 0.75) bgCls = 'bg-emerald-500';
+            else bgCls = 'bg-emerald-600 dark:bg-emerald-400';
+          }
+          const label = `${formatRelativeDate(item.iso)} (${item.iso}): ${Math.round(item.vol).toLocaleString()} ${state.unit}`;
+          cells.push(`
+            <button type="button"
+              onclick="inspectHeatmapDay('${escapeHtml(label)}')"
+              onmouseenter="inspectHeatmapDay('${escapeHtml(label)}')"
+              title="${escapeHtml(label)}"
+              aria-label="${escapeHtml(label)}"
+              class="w-full h-3.5 rounded-xs ${bgCls} hover:ring-2 hover:ring-emerald-500/70 transition-all focus:outline-none">
+            </button>
+          `);
+        }
+        columnsHtml.push(`<div class="grid grid-rows-7 gap-1.5">${cells.join('')}</div>`);
+      }
+      document.getElementById('heatmap-grid-columns').innerHTML = columnsHtml.join('');
+
+      let strengthSets = 0, strengthVol = 0;
+      let hyperSets = 0, hyperVol = 0;
+      let endurSets = 0, endurVol = 0;
+
+      filteredSessions.forEach(sess => {
+        (sess.exercises || []).forEach(ex => {
+          (ex.sets || []).forEach(s => {
+            const r = parseInt(s.reps, 10) || 0;
+            const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+            const vol = w * r;
+            if (r <= 5) {
+              strengthSets += 1;
+              strengthVol += vol;
+            } else if (r <= 12) {
+              hyperSets += 1;
+              hyperVol += vol;
+            } else {
+              endurSets += 1;
+              endurVol += vol;
+            }
+          });
+        });
+      });
+
+      const totalZoneSets = strengthSets + hyperSets + endurSets;
+      const strPct = totalZoneSets > 0 ? Math.round((strengthSets / totalZoneSets) * 100) : 0;
+      const hypPct = totalZoneSets > 0 ? Math.round((hyperSets / totalZoneSets) * 100) : 0;
+      const endPct = totalZoneSets > 0 ? Math.round((endurSets / totalZoneSets) * 100) : 0;
+
+      document.getElementById('zone-strength-pct').textContent = `${strPct}%`;
+      document.getElementById('zone-strength-meta').textContent = `${strengthSets} sets · ${formatVolume(strengthVol)}`;
+
+      document.getElementById('zone-hypertrophy-pct').textContent = `${hypPct}%`;
+      document.getElementById('zone-hypertrophy-meta').textContent = `${hyperSets} sets · ${formatVolume(hyperVol)}`;
+
+      document.getElementById('zone-endurance-pct').textContent = `${endPct}%`;
+      document.getElementById('zone-endurance-meta').textContent = `${endurSets} sets · ${formatVolume(endurVol)}`;
+
+      destroyChart('trainingZones');
+      const ctxZones = document.getElementById('chart-training-zones').getContext('2d');
+      chartInstances.trainingZones = new Chart(ctxZones, {
+        type: 'doughnut',
+        data: {
+          labels: ['Strength (1–5)', 'Hypertrophy (6–12)', 'Endurance (13+)'],
+          datasets: [{
+            data: totalZoneSets > 0 ? [strengthSets, hyperSets, endurSets] : [1, 1, 1],
+            backgroundColor: totalZoneSets > 0
+              ? ['#3B82F6', '#10B981', '#F59E0B']
+              : ['rgba(148, 163, 184, 0.25)', 'rgba(148, 163, 184, 0.2)', 'rgba(148, 163, 184, 0.15)'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '66%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: totalZoneSets > 0,
+              backgroundColor: colors.tooltipBg,
+              callbacks: {
+                label: ctx => `${ctx.label}: ${ctx.parsed} sets`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function inspectHeatmapDay(text) {
+      document.getElementById('heatmap-hover-readout').textContent = text;
+    }
+
+    /* --- SECTION 6C: ALL-TIME PERSONAL RECORDS (PR) & 1RM LEADERBOARD --- */
+    function renderPRLeaderboard() {
+      const sortBy = document.getElementById('pr-sort-select').value;
+      const prMap = {};
+
+      state.history.forEach(sess => {
+        (sess.exercises || []).forEach(ex => {
+          const name = ex.name;
+          if (!name) return;
+          if (!prMap[name]) {
+            prMap[name] = {
+              name,
+              muscleGroup: ex.muscleGroup || detectMuscleGroup(name),
+              maxWeight: 0,
+              est1RM: 0,
+              bestSetVol: 0,
+              bestSessionVol: 0,
+              totalSets: 0,
+              lifetimeVol: 0
+            };
+          }
+
+          const rec = prMap[name];
+          let sessExVol = 0;
+
+          (ex.sets || []).forEach(s => {
+            const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+            const r = parseInt(s.reps, 10) || 0;
+            const setVol = w * r;
+            const e1rm = r === 1 ? w : w * (1 + r / 30);
+
+            rec.totalSets += 1;
+            rec.lifetimeVol += setVol;
+            sessExVol += setVol;
+
+            if (w > rec.maxWeight) rec.maxWeight = w;
+            if (e1rm > rec.est1RM) rec.est1RM = e1rm;
+            if (setVol > rec.bestSetVol) rec.bestSetVol = setVol;
+          });
+
+          if (sessExVol > rec.bestSessionVol) {
+            rec.bestSessionVol = sessExVol;
+          }
+        });
+      });
+
+      const records = Object.values(prMap).sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
+      const tbody = document.getElementById('pr-leaderboard-tbody');
+
+      if (records.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-6 text-center text-xs text-[#64748B] dark:text-slate-400">
+              Complete workouts to populate your all-time Personal Records leaderboard.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = records.map((r, idx) => `
+        <tr class="hover:bg-[#F8FAFC]/80 dark:hover:bg-slate-800/40">
+          <td class="py-2.5 px-3">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-bold text-[#64748B] dark:text-slate-400 w-4">${idx + 1}.</span>
+              <div class="min-w-0">
+                <div class="font-semibold text-[#0F172A] dark:text-white truncate max-w-[125px]">${escapeHtml(r.name)}</div>
+                <div class="text-[10px] text-[#64748B] dark:text-slate-400">${escapeHtml(r.muscleGroup)}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-2.5 px-2 text-right font-semibold text-[#0F172A] dark:text-slate-200 whitespace-nowrap">${r.maxWeight} ${state.unit}</td>
+          <td class="py-2.5 px-2 text-right font-bold text-[#10B981] whitespace-nowrap">${(Math.round(r.est1RM * 10) / 10)} ${state.unit}</td>
+          <td class="py-2.5 px-2 text-right text-[#64748B] dark:text-slate-400 whitespace-nowrap">${Math.round(r.bestSetVol).toLocaleString()}</td>
+          <td class="py-2.5 px-2 text-right text-[#64748B] dark:text-slate-400 whitespace-nowrap">${Math.round(r.bestSessionVol).toLocaleString()}</td>
+          <td class="py-2.5 px-2 text-right text-[#0F172A] dark:text-slate-200">${r.totalSets}</td>
+          <td class="py-2.5 px-3 text-right font-semibold text-[#0F172A] dark:text-white whitespace-nowrap">${formatVolume(r.lifetimeVol)}</td>
+        </tr>
+      `).join('');
+    }
+
+    /* ==========================================================================
+       11. TAB 3: HISTORY
+       ========================================================================== */
+
+    function toggleHistoryAccordion(sessionId) {
+      if (state.expandedHistoryIds.has(sessionId)) {
+        state.expandedHistoryIds.delete(sessionId);
+      } else {
+        state.expandedHistoryIds.add(sessionId);
+      }
+      renderHistoryTab();
+    }
+
+    function promptDeleteSession(sessionId) {
+      const target = state.history.find(s => s.id === sessionId);
+      if (!target) return;
+      openConfirmDialog(
+        'Delete Session',
+        `Delete "${target.title}" (${formatRelativeDate(target.date)}) from history and metrics?`,
+        () => {
+          state.history = state.history.filter(s => s.id !== sessionId);
+          state.expandedHistoryIds.delete(sessionId);
+          saveHistory();
+          updateHistoryCountBadge();
+          renderHistoryTab();
+          showToast('Session deleted');
+        }
+      );
+    }
+
+    function renderHistoryTab() {
+      const container = document.getElementById('history-list-container');
+      const subtitle = document.getElementById('history-count-subtitle');
+      subtitle.textContent = state.history.length > 0
+        ? `${state.history.length} ${state.history.length === 1 ? 'session' : 'sessions'}`
+        : '';
+
+      if (state.history.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-8 text-center space-y-2">
+            <h3 class="text-sm font-bold text-[#0F172A] dark:text-white">No workouts logged yet</h3>
+            <p class="text-xs text-[#64748B] dark:text-slate-400 max-w-xs mx-auto">
+              Completed workouts will appear here chronologically with full set and volume breakdowns.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = state.history.map(sess => {
+        const exCount = (sess.exercises || []).length;
+        let totalSets = 0;
+        let totalVol = 0;
+
+        (sess.exercises || []).forEach(ex => {
+          (ex.sets || []).forEach(s => {
+            totalSets += 1;
+            totalVol += convertWeight(s.weight || 0, s.unit || 'kg', state.unit) * (parseInt(s.reps, 10) || 0);
+          });
+        });
+
+        const isExpanded = state.expandedHistoryIds.has(sess.id);
+
+        const detailsHtml = (sess.exercises || []).map(ex => {
+          const muscle = ex.muscleGroup || detectMuscleGroup(ex.name);
+          const setsChips = (ex.sets || []).map((s, idx) => {
+            const w = convertWeight(s.weight || 0, s.unit || 'kg', state.unit);
+            return `
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 text-xs tabular-nums">
+                <span class="text-[#64748B] dark:text-slate-400">Set ${idx + 1}:</span>
+                <span class="font-bold text-[#0F172A] dark:text-white">${w} ${state.unit} &times; ${s.reps}</span>
+              </span>
+            `;
+          }).join('');
+
+          return `
+            <div class="space-y-1.5 pt-2.5 first:pt-0 border-t first:border-t-0 border-[#E2E8F0]/70 dark:border-slate-800">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-bold text-[#0F172A] dark:text-white">${escapeHtml(ex.name)}</span>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">${escapeHtml(muscle)}</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">${setsChips}</div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <article class="bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl overflow-hidden transition-colors">
+            <div onclick="toggleHistoryAccordion('${sess.id}')" role="button" tabindex="0"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleHistoryAccordion('${sess.id}');}"
+              class="p-4 cursor-pointer flex items-center justify-between gap-3 hover:bg-[#F8FAFC]/60 dark:hover:bg-slate-800/30 transition-colors">
+              <div class="min-w-0 space-y-1">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-[#0F172A] dark:text-white truncate">${escapeHtml(sess.title)}</h3>
+                  <span class="text-[11px] font-medium text-[#64748B] dark:text-slate-400 shrink-0">${formatRelativeDate(sess.date)}</span>
+                </div>
+                <div class="text-xs text-[#64748B] dark:text-slate-400 tabular-nums">
+                  ${sess.durationMinutes || 1} min &middot; ${exCount} ${exCount === 1 ? 'exercise' : 'exercises'} &middot; ${totalSets} sets &middot; <strong class="text-[#0F172A] dark:text-slate-200">${formatVolume(totalVol)}</strong>
+                </div>
+              </div>
+
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center text-[#64748B] dark:text-slate-400 shrink-0">
+                <svg class="w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+
+            ${isExpanded ? `
+              <div class="px-4 pb-4 pt-3 border-t border-[#E2E8F0]/80 dark:border-slate-800 space-y-3">
+                <div class="space-y-2.5">${detailsHtml}</div>
+                <div class="pt-2 border-t border-[#E2E8F0]/70 dark:border-slate-800 flex justify-end">
+                  <button type="button" onclick="promptDeleteSession('${sess.id}')"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition-colors">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Delete Session
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+          </article>
+        `;
+      }).join('');
+    }
+
+    /* ==========================================================================
+       12. CONFIRMATION DIALOG & INITIALIZATION
+       ========================================================================== */
+
+    function openConfirmDialog(title, message, onYes) {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-message').textContent = message;
+      confirmCallback = onYes;
+      document.getElementById('confirm-dialog').classList.remove('hidden');
+    }
+
+    function closeConfirmDialog() {
+      document.getElementById('confirm-dialog').classList.add('hidden');
+      confirmCallback = null;
+    }
+
+    document.getElementById('confirm-yes-btn').addEventListener('click', () => {
+      if (typeof confirmCallback === 'function') confirmCallback();
+      closeConfirmDialog();
+    });
+
+    document.getElementById('confirm-dialog').addEventListener('click', e => {
+      if (e.target.id === 'confirm-dialog') closeConfirmDialog();
+    });
+
+    document.getElementById('builder-modal').addEventListener('click', e => {
+      if (e.target.id === 'builder-modal') closeWorkoutBuilder();
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      applyTheme();
+      updateUnitButtons();
+      switchTab('workouts');
+    });
+  </script>
+</body>
+</html>
